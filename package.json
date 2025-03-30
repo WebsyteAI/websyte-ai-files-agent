@@ -1,11 +1,12 @@
 {
-  "name": "cloudflare-agent-starter",
+  "name": "websyte-ai-files-agent",
   "version": "1.0.0",
   "description": "",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "vite dev",
+    "build": "vite build",
     "deploy": "vite build && wrangler deploy",
     "test": "vitest",
     "types": "wrangler types",
