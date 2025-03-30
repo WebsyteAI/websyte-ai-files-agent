@@ -92,7 +92,7 @@ You can generate code for files based on their names and extensions.
   }
   async executeTask(description: string, task: Schedule<string>) {
     console.log(`Executing scheduled task: ${description}, ID: ${task.id}`);
-    
+
     // Add a message to the chat about the executed task
     await this.saveMessages([
       ...this.messages,
@@ -103,10 +103,10 @@ You can generate code for files based on their names and extensions.
         createdAt: new Date(),
       },
     ]);
-    
+
     // If the task is a one-time task, we can remove it after execution
     // For recurring tasks (cron), we keep them
-    if (task.type !== 'cron') {
+    if (task.type !== "cron") {
       try {
         await this.cancelSchedule(task.id);
         console.log(`Removed one-time task after execution: ${task.id}`);
@@ -128,6 +128,7 @@ export default {
       );
       return new Response("OPENAI_API_KEY is not set", { status: 500 });
     }
+
     return (
       // Route the request to our agent or return 404 if not found
       (await routeAgentRequest(request, env)) ||

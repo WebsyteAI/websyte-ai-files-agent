@@ -1,5 +1,5 @@
 {
-  "name": "my-chat-agent",
+  "name": "websyte-ai-files-agent",
   "main": "src/server.ts",
   "compatibility_date": "2025-02-04",
   "compatibility_flags": [
