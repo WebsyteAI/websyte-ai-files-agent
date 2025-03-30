@@ -146,22 +146,22 @@ const listScheduledTasks = tool({
  * Tool to get the file system
  */
 const getFileSystem = tool({
-  description: "Get the current file system structure",
+  description: "Get the current file system structure from the agent's state",
   parameters: z.object({}),
   execute: async () => {
     console.log("getFileSystem called");
     try {
       const agent = agentContext.getStore();
       if (!agent) {
-        throw new Error("No agent found");
+        throw new Error("Agent context not found");
       }
-      
-      // Try to get the file system from the agent's fileSystem property
-      // If it doesn't exist, use the default fileSystemStorage
-      const agentFileSystem = (agent as any).files || [];
+      // Access state using agent.state
+      const currentState = agent.state || {};
+      const agentFileSystem = currentState.files || [];
+      console.log("Retrieved file system from agent state:", agentFileSystem);
       return JSON.stringify(agentFileSystem);
     } catch (error) {
-      console.error("Error getting file system:", error);
+      console.error("Error getting file system from agent state:", error);
       return `Error getting file system: ${error}`;
     }
   },
@@ -184,22 +184,23 @@ const FileItemSchema: z.ZodType<any> = z.lazy(() =>
  * Tool to set the file system
  */
 const setFiles = tool({
-  description: "Update the file system structure",
+  description: "Update the file system structure in the agent's state",
   parameters: z.object({
-    files: z.array(FileItemSchema).describe("The new file system structure"),
+    files: z.array(FileItemSchema).describe("The new file system structure to set in the agent's state"),
   }),
   execute: async ({ files }) => {
     console.log("setFiles called with:", files);
     try {
-      // Also update the agent's files property if available
       const agent = agentContext.getStore();
-      if (agent) {
-        (agent as any).files = files;
+      if (!agent) {
+        throw new Error("Agent context not found");
       }
-      
-      return "File system updated successfully";
+      // Update state using agent.setState
+      await agent.setState({ files: files });
+      console.log("Agent file system state updated successfully.");
+      return "Agent file system state updated successfully";
     } catch (error) {
-      console.error("Error setting file system:", error);
+      console.error("Error setting agent file system state:", error);
       return `Error setting file system: ${error}`;
     }
   },

@@ -38,6 +38,8 @@ export default function Chat() {
   });
   const [showDebug, setShowDebug] = useState(false);
   const [showStoragePanel, setShowStoragePanel] = useState(true);
+  const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
+  const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -68,8 +70,14 @@ export default function Chat() {
     setTheme(newTheme);
   };
 
+  // Update useAgent hook to include onStateUpdate
   const agent = useAgent({
     agent: "chat",
+    onStateUpdate: (newState: any) => {
+      console.log("Agent state updated:", newState);
+      setAgentState(newState);
+      setAgentStateLoading(false);
+    },
   });
 
   const {
@@ -420,9 +428,11 @@ export default function Chat() {
         </div>
 
         {/* Storage Panel */}
+        {/* Storage Panel */}
         {showStoragePanel && (
           <div className="h-full w-80 flex-shrink-0">
-            <StoragePanel agent={agent} onRemoveTask={handleRemoveTask} />
+            {/* Pass agentState and loading props */}
+            <StoragePanel agentState={agentState} loading={agentStateLoading} />
           </div>
         )}
       </div>
