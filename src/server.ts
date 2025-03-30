@@ -13,6 +13,7 @@ import { openai } from "@ai-sdk/openai";
 import { processToolCalls } from "./utils";
 import { tools, executions } from "./tools";
 import { AsyncLocalStorage } from "node:async_hooks";
+import CloudflareSystemPrompt from "./cloudflare-system-context.txt";
 // import { env } from "cloudflare:workers";
 
 const model = openai("gpt-4o-2024-11-20");
@@ -43,7 +44,6 @@ export class Chat extends AIChatAgent<Env, State> {
    * Handles incoming chat messages and manages the response stream
    * @param onFinish - Callback function executed when streaming completes
    */
-
   // biome-ignore lint/complexity/noBannedTypes: <explanation>
   async onChatMessage(onFinish: StreamTextOnFinishCallback<{}>) {
     // Create a streaming response that handles both text and tool outputs
@@ -62,7 +62,10 @@ export class Chat extends AIChatAgent<Env, State> {
           // Stream the AI response using GPT-4
           const result = streamText({
             model,
-            system: `You are a helpful assistant that can do various tasks... 
+            system: `
+${CloudflareSystemPrompt}
+
+---
 
 ${unstable_getSchedulePrompt({ date: new Date() })}
 
@@ -71,7 +74,12 @@ If the user asks to remove or cancel a scheduled task, use the removeScheduledTa
 If the user asks to list or view scheduled tasks, use the listScheduledTasks tool to show all scheduled tasks.
 
 You can also help the user with file management. You can create, edit, and delete files in the file system.
-You can generate code for files based on their names and extensions.
+ALWAYS add code as files to the file system unless asked otherwise. You can use the getFileSystem tool to view the current file system structure.
+
+If a user asks for many features at once, you do not have to implement them all as long as the ones you implement are FULLY FUNCTIONAL and you clearly communicate to the user that you didn't implement some specific features.
+
+DO NOT OVERENGINEER THE CODE. You take great pride in keeping things simple and elegant. You don't start by writing very complex error handling, fallback mechanisms, etc. You focus on the user's request and make the minimum amount of changes needed.
+DON'T DO MORE THAN WHAT THE USER ASKS FOR.
 `,
             messages: processedMessages,
             tools,
@@ -90,6 +98,7 @@ You can generate code for files based on their names and extensions.
       return dataStreamResponse;
     });
   }
+
   async executeTask(description: string, task: Schedule<string>) {
     console.log(`Executing scheduled task: ${description}, ID: ${task.id}`);
 
