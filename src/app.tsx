@@ -2,8 +2,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
 import type { Message } from "@ai-sdk/react";
-import { APPROVAL, STORAGE_EVENTS } from "./shared";
-import type { tools } from "./tools";
+import { APPROVAL } from "../server/shared";
+import type { tools } from "../server/tools";
 
 // Component imports
 import { Button } from "@/components/button/Button";

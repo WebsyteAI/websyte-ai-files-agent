@@ -1,6 +1,6 @@
 {
   "name": "websyte-ai-files-agent",
-  "main": "src/server.ts",
+  "main": "server/server.ts",
   "compatibility_date": "2025-02-04",
   "compatibility_flags": [
     "nodejs_compat",
@@ -22,5 +22,9 @@
       "tag": "v1",
       "new_sqlite_classes": ["Chat"]
     }
-  ]
+  ],
+  "vars": {
+    "DISPATCH_NAMESPACE_NAME": "testing",
+    "DISPATCH_NAMESPACE_ACCOUNT_ID": "85007e57ff327d1bd0f10025e9ea3aa3"
+  }
 }

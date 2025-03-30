@@ -4,5 +4,5 @@ interface Env {
 	OPENAI_API_KEY: string;
 	CLOUDFLARE_ACCOUNT_ID: string;
 	CLOUDFLARE_API_TOKEN: string;
-	Chat: DurableObjectNamespace<import("./src/server").Chat>;
+	Chat: DurableObjectNamespace<import("./server/server").Chat>;
 }
