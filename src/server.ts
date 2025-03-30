@@ -14,7 +14,76 @@ import { processToolCalls } from "./utils";
 import { tools, executions } from "./tools";
 import { AsyncLocalStorage } from "node:async_hooks";
 import CloudflareSystemPrompt from "./cloudflare-system-context.txt";
+import type { ExecutionContext, ExportedHandler, Request as CfRequest, Response as CfResponse, IncomingRequestCfProperties } from "@cloudflare/workers-types"; // Added import
 // import { env } from "cloudflare:workers";
+
+// Helper function to upload worker script to Cloudflare Dispatch Namespace
+async function uploadWorkerScript(
+	env: Env,
+	scriptName: string,
+	scriptContent: string,
+): Promise<{ success: boolean; errors?: any[] }> {
+	const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+	const apiToken = env.CLOUDFLARE_API_TOKEN;
+	const namespace = "testing"; // As defined in wrangler.jsonc
+
+	if (!accountId || !apiToken) {
+		console.error(
+			"Cloudflare Account ID or API Token not configured in environment.",
+		);
+		return {
+			success: false,
+			errors: ["Cloudflare credentials not configured."],
+		};
+	}
+
+	const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/dispatch/namespaces/${namespace}/scripts/${scriptName}`;
+
+	// Use FormData to upload the script content
+	const formData = new FormData();
+	formData.append(
+		"metadata",
+		JSON.stringify({ main_module: "index.js" }), // Assuming ES module format
+	);
+	formData.append("index.js", new Blob([scriptContent]), "index.js");
+
+	try {
+		const response = await fetch(apiUrl, {
+			method: "PUT",
+			headers: {
+				Authorization: `Bearer ${apiToken}`,
+				// Content-Type is set automatically by fetch when using FormData
+			},
+			body: formData,
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			console.error(
+				`Failed to upload worker script ${scriptName}:`,
+				response.status,
+				response.statusText,
+				errorData,
+			);
+			// Ensure errorData is treated as potentially having an 'errors' property
+			const apiErrors = (errorData as any)?.errors;
+			return {
+				success: false,
+				errors: Array.isArray(apiErrors) && apiErrors.length > 0
+					? apiErrors
+					: [{ message: response.statusText || "Unknown API error" }],
+			};
+		}
+
+		console.log(`Successfully uploaded worker script: ${scriptName}`);
+		return { success: true };
+	} catch (error) { // Keep type as unknown or any for broader catch
+		console.error(`Error uploading worker script ${scriptName}:`, error);
+		// Ensure error has a message property before accessing it
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		return { success: false, errors: [{ message: errorMessage }] };
+	}
+}
 
 const model = openai("gpt-4o-2024-11-20");
 // Cloudflare AI Gateway
@@ -130,6 +199,7 @@ DON'T DO MORE THAN WHAT THE USER ASKS FOR.
  * Worker entry point that routes incoming requests to the appropriate handler
  */
 export default {
+  // @ts-ignore
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     if (!process.env.OPENAI_API_KEY) {
       console.error(
@@ -145,3 +215,21 @@ export default {
     );
   },
 } satisfies ExportedHandler<Env>;
+
+// Helper function to extract subdomain
+function getWorkerIdFromSubdomain(
+	request: CfRequest<unknown, IncomingRequestCfProperties>,
+	baseDomain: string,
+): string | null {
+	const url = new URL(request.url);
+	const hostname = url.hostname;
+
+	if (hostname.endsWith(`.${baseDomain}`)) {
+		const parts = hostname.split(".");
+		// Check if it's a direct subdomain (e.g., worker-id.base.com)
+		if (parts.length === 3) {
+			return parts[0];
+		}
+	}
+	return null;
+}
