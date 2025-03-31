@@ -4,7 +4,6 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
-import { Octokit } from "octokit";
 
 import { agentContext } from "./server";
 import {
@@ -460,68 +459,127 @@ const publishToGitHub = tool({
         return "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
       }
 
-      // Initialize Octokit
-      const octokit = new Octokit({
-        auth: authToken,
-      });
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "Content-Type": "application/json",
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+      
+      console.log("Using GitHub API with token", authToken ? "****" + authToken.slice(-4) : "none");
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
 
       // Check if repository exists and get its state
       let baseCommitSha;
       let baseTreeSha;
       let branchExists = true;
+      let defaultBranch;
       
       try {
         // Get repository info
-        const { data: repoData } = await octokit.rest.repos.get({
-          owner,
-          repo,
+        console.log(`Fetching repository info for ${owner}/${repo}`);
+        const repoResponse = await fetch(`${apiBaseUrl}/repos/${owner}/${repo}`, {
+          method: "GET",
+          headers,
         });
+        
+        if (!repoResponse.ok) {
+          const errorText = await repoResponse.text();
+          console.error(`GitHub API error (${repoResponse.status}): ${errorText}`);
+          throw new Error(`Failed to get repository: ${repoResponse.status} ${repoResponse.statusText}. Details: ${errorText}`);
+        }
+        
+        const repoData = await repoResponse.json();
+        defaultBranch = repoData.default_branch;
         
         console.log(`Repository ${owner}/${repo} exists`);
         
         try {
           // Try to get the branch reference
-          const { data: refData } = await octokit.rest.git.getRef({
-            owner,
-            repo,
-            ref: `heads/${branch}`,
-          });
+          console.log(`Checking if branch '${branch}' exists`);
+          const refResponse = await fetch(
+            `${apiBaseUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+            {
+              method: "GET",
+              headers,
+            }
+          );
+          
+          if (!refResponse.ok) {
+            const errorText = await refResponse.text();
+            console.error(`GitHub API error (${refResponse.status}): ${errorText}`);
+            throw new Error(`Branch not found: ${refResponse.status}. Details: ${errorText}`);
+          }
+          
+          const refData = await refResponse.json();
           
           // Branch exists
           baseCommitSha = refData.object.sha;
           
           // Get the base tree
-          const { data: baseCommit } = await octokit.rest.git.getCommit({
-            owner,
-            repo,
-            commit_sha: baseCommitSha,
-          });
+          console.log(`Getting commit details for SHA: ${baseCommitSha}`);
+          const commitResponse = await fetch(
+            `${apiBaseUrl}/repos/${owner}/${repo}/git/commits/${baseCommitSha}`,
+            {
+              method: "GET",
+              headers,
+            }
+          );
           
+          if (!commitResponse.ok) {
+            const errorText = await commitResponse.text();
+            console.error(`GitHub API error (${commitResponse.status}): ${errorText}`);
+            throw new Error(`Failed to get commit: ${commitResponse.status}. Details: ${errorText}`);
+          }
+          
+          const baseCommit = await commitResponse.json();
           baseTreeSha = baseCommit.tree.sha;
         } catch (branchError) {
           // Branch doesn't exist, use the default branch as base
           console.log(`Branch '${branch}' not found, will create it using default branch as base`);
           branchExists = false;
           
-          const defaultBranch = repoData.default_branch;
           console.log(`Using default branch '${defaultBranch}' as base`);
           
           // Get the SHA of the default branch
-          const { data: defaultBranchData } = await octokit.rest.git.getRef({
-            owner,
-            repo,
-            ref: `heads/${defaultBranch}`,
-          });
+          console.log(`Getting default branch '${defaultBranch}' reference`);
+          const defaultBranchResponse = await fetch(
+            `${apiBaseUrl}/repos/${owner}/${repo}/git/refs/heads/${defaultBranch}`,
+            {
+              method: "GET",
+              headers,
+            }
+          );
           
+          if (!defaultBranchResponse.ok) {
+            const errorText = await defaultBranchResponse.text();
+            console.error(`GitHub API error (${defaultBranchResponse.status}): ${errorText}`);
+            throw new Error(`Failed to get default branch: ${defaultBranchResponse.status}. Details: ${errorText}`);
+          }
+          
+          const defaultBranchData = await defaultBranchResponse.json();
           baseCommitSha = defaultBranchData.object.sha;
           
           // Get the base tree
-          const { data: baseCommit } = await octokit.rest.git.getCommit({
-            owner,
-            repo,
-            commit_sha: baseCommitSha,
-          });
+          console.log(`Getting commit details for default branch SHA: ${baseCommitSha}`);
+          const baseCommitResponse = await fetch(
+            `${apiBaseUrl}/repos/${owner}/${repo}/git/commits/${baseCommitSha}`,
+            {
+              method: "GET",
+              headers,
+            }
+          );
           
+          if (!baseCommitResponse.ok) {
+            const errorText = await baseCommitResponse.text();
+            console.error(`GitHub API error (${baseCommitResponse.status}): ${errorText}`);
+            throw new Error(`Failed to get base commit: ${baseCommitResponse.status}. Details: ${errorText}`);
+          }
+          
+          const baseCommit = await baseCommitResponse.json();
           baseTreeSha = baseCommit.tree.sha;
         }
       } catch (error) {
@@ -530,58 +588,130 @@ const publishToGitHub = tool({
       }
 
       // Create blobs for each file
+      console.log(`Creating blobs for ${Object.keys(files).length} files`);
       const fileBlobs = await Promise.all(
         Object.entries(files).map(async ([path, fileData]) => {
-          const { data } = await octokit.rest.git.createBlob({
-            owner,
-            repo,
-            content: fileData.content,
-            encoding: "utf-8",
-          });
+          console.log(`Creating blob for file: ${path}`);
+          const blobResponse = await fetch(
+            `${apiBaseUrl}/repos/${owner}/${repo}/git/blobs`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                content: fileData.content,
+                encoding: "utf-8",
+              }),
+            }
+          );
+          
+          if (!blobResponse.ok) {
+            const errorText = await blobResponse.text();
+            console.error(`GitHub API error (${blobResponse.status}): ${errorText}`);
+            throw new Error(`Failed to create blob for ${path}: ${blobResponse.status}. Details: ${errorText}`);
+          }
+          
+          const data = await blobResponse.json();
+          console.log(`Blob created for ${path} with SHA: ${data.sha.slice(0, 7)}...`);
 
           return {
             path,
-            mode: "100644" as const, // Regular file
-            type: "blob" as const,
+            mode: "100644", // Regular file
+            type: "blob",
             sha: data.sha,
           };
         })
       );
 
       // Create a new tree with the file blobs
-      const { data: newTree } = await octokit.rest.git.createTree({
-        owner,
-        repo,
-        base_tree: baseTreeSha,
-        tree: fileBlobs,
-      });
+      console.log(`Creating tree with ${fileBlobs.length} blobs, base tree: ${baseTreeSha.slice(0, 7)}...`);
+      const treeResponse = await fetch(
+        `${apiBaseUrl}/repos/${owner}/${repo}/git/trees`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            base_tree: baseTreeSha,
+            tree: fileBlobs,
+          }),
+        }
+      );
+      
+      if (!treeResponse.ok) {
+        const errorText = await treeResponse.text();
+        console.error(`GitHub API error (${treeResponse.status}): ${errorText}`);
+        throw new Error(`Failed to create tree: ${treeResponse.status}. Details: ${errorText}`);
+      }
+      
+      const newTree = await treeResponse.json();
 
       // Create a new commit
-      const { data: newCommit } = await octokit.rest.git.createCommit({
-        owner,
-        repo,
-        message: commitMessage,
-        tree: newTree.sha,
-        parents: [baseCommitSha],
-      });
+      console.log(`Creating commit with message: "${commitMessage}", tree: ${newTree.sha.slice(0, 7)}...`);
+      const commitResponse = await fetch(
+        `${apiBaseUrl}/repos/${owner}/${repo}/git/commits`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message: commitMessage,
+            tree: newTree.sha,
+            parents: [baseCommitSha],
+          }),
+        }
+      );
+      
+      if (!commitResponse.ok) {
+        const errorText = await commitResponse.text();
+        console.error(`GitHub API error (${commitResponse.status}): ${errorText}`);
+        throw new Error(`Failed to create commit: ${commitResponse.status}. Details: ${errorText}`);
+      }
+      
+      const newCommit = await commitResponse.json();
 
       // Create or update the branch reference
       if (branchExists) {
         // Update existing branch
-        await octokit.rest.git.updateRef({
-          owner,
-          repo,
-          ref: `heads/${branch}`,
-          sha: newCommit.sha,
-        });
+        console.log(`Updating existing branch '${branch}' to point to commit: ${newCommit.sha.slice(0, 7)}...`);
+        const updateRefResponse = await fetch(
+          `${apiBaseUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              sha: newCommit.sha,
+              force: false,
+            }),
+          }
+        );
+        
+        if (!updateRefResponse.ok) {
+          const errorText = await updateRefResponse.text();
+          console.error(`GitHub API error (${updateRefResponse.status}): ${errorText}`);
+          throw new Error(`Failed to update branch: ${updateRefResponse.status}. Details: ${errorText}`);
+        }
+        
+        console.log(`Successfully updated branch '${branch}'`);
       } else {
         // Create new branch
-        await octokit.rest.git.createRef({
-          owner,
-          repo,
-          ref: `refs/heads/${branch}`,
-          sha: newCommit.sha,
-        });
+        console.log(`Creating new branch '${branch}' pointing to commit: ${newCommit.sha.slice(0, 7)}...`);
+        const createRefResponse = await fetch(
+          `${apiBaseUrl}/repos/${owner}/${repo}/git/refs`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              ref: `refs/heads/${branch}`,
+              sha: newCommit.sha,
+            }),
+          }
+        );
+        
+        if (!createRefResponse.ok) {
+          const errorText = await createRefResponse.text();
+          console.error(`GitHub API error (${createRefResponse.status}): ${errorText}`);
+          throw new Error(`Failed to create branch: ${createRefResponse.status}. Details: ${errorText}`);
+        }
+        
+        console.log(`Successfully created new branch '${branch}'`);
       }
 
       return `Successfully published ${Object.keys(files).length} files to GitHub repository ${owner}/${repo} on branch ${branch}.`;
