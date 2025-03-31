@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
-import { FolderOpen, ArrowClockwise, CloudArrowUp, CaretDown, CaretRight, ArrowsHorizontal } from "@phosphor-icons/react";
+import { Input } from "@/components/input/Input";
+import { Label } from "@/components/label/Label";
+import { FolderOpen, ArrowClockwise, CloudArrowUp, CaretDown, CaretRight, ArrowsHorizontal, GithubLogo } from "@phosphor-icons/react";
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
@@ -88,6 +90,7 @@ interface StoragePanelProps {
 export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
+  
   // Initialize all files as expanded by default
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(() => {
     const initialState: Record<string, boolean> = {};
@@ -136,8 +139,50 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
   // Count the number of files
   const fileCount = agentState?.files ? Object.keys(agentState.files).length : 0;
   
-  // Handle publish button click
-  const handlePublish = async () => {
+  // Handle GitHub publish
+  const handleGitHubPublish = async () => {
+    if (!agentState?.files || Object.keys(agentState.files).length === 0) {
+      setPublishResult("No files to publish. Create some files first.");
+      return;
+    }
+    
+    setIsPublishing(true);
+    setPublishResult(null);
+    
+    try {
+      // Call the agent's publishToGitHub tool directly with default parameters
+      const response = await fetch('/api/agent/tool', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tool: 'publishToGitHub',
+          params: {
+            owner: 'WebsyteAI', // Default organization
+            repo: 'wai-1',      // Default repository
+            commitMessage: 'Publish files from Websyte.ai',
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'GitHub publishing failed');
+      }
+      
+      const result = await response.json();
+      setPublishResult(result.content || 'Successfully published files to GitHub repository');
+    } catch (error) {
+      console.error("Error publishing to GitHub:", error);
+      setPublishResult(`Error publishing to GitHub: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+  
+  // Handle Cloudflare publish button click
+  const handleCloudflarePublish = async () => {
     if (!agentState?.files || Object.keys(agentState.files).length === 0) {
       setPublishResult("No files to publish. Create some files first.");
       return;
@@ -222,16 +267,29 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
             </div>
           )}
           
-          <Button
-            variant="primary"
-            size="sm"
-            className="flex items-center gap-1"
-            disabled={isPublishing || fileCount === 0}
-            onClick={handlePublish}
-          >
-            <CloudArrowUp size={16} />
-            <span>{isPublishing ? "Publishing..." : "Publish"}</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              className="flex items-center gap-1"
+              disabled={isPublishing || fileCount === 0}
+              onClick={handleCloudflarePublish}
+            >
+              <CloudArrowUp size={16} />
+              <span>{isPublishing ? "Publishing..." : "Cloudflare"}</span>
+            </Button>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex items-center gap-1"
+              disabled={isPublishing || fileCount === 0}
+              onClick={handleGitHubPublish}
+            >
+              <GithubLogo size={16} />
+              <span>GitHub</span>
+            </Button>
+          </div>
         </div>
       </div>
       

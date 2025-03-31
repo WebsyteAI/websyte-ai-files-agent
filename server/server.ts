@@ -276,6 +276,69 @@ export default {
     // Handle API requests
     const url = new URL(request.url);
     
+    // Handle tool execution API endpoint
+    if (url.pathname === '/api/agent/tool' && request.method === 'POST') {
+      try {
+        const data = await request.json();
+        const { tool: toolName, params } = data;
+        
+        if (!toolName) {
+          return new Response(
+            JSON.stringify({ success: false, message: 'Tool name is required' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Check if the tool exists
+        if (!tools[toolName as keyof typeof tools]) {
+          return new Response(
+            JSON.stringify({ success: false, message: `Tool '${toolName}' not found` }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Get the agent instance
+        const url = new URL(request.url);
+        const agentId = url.searchParams.get('agentId') || 'default';
+        const agentNamespace = env.Chat;
+        const agentIdObj = agentNamespace.idFromName(agentId);
+        const agent = agentNamespace.get(agentIdObj);
+        
+        // Execute the tool within the agent context
+        return await agentContext.run(agent, async () => {
+          try {
+            // Execute the tool
+            const tool = tools[toolName as keyof typeof tools];
+            // @ts-ignore
+            const result = await tool.execute(params);
+            
+            return new Response(
+              JSON.stringify({ success: true, content: result }),
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+          } catch (error) {
+            console.error(`Error executing tool '${toolName}':`, error);
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                message: error instanceof Error ? error.message : String(error) 
+              }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        });
+      } catch (error) {
+        console.error('Error in tool execution endpoint:', error);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: error instanceof Error ? error.message : 'Unknown error' 
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
     // Handle deployment API endpoint
     if (url.pathname === '/api/deploy' && request.method === 'POST') {
       try {

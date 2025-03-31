@@ -4,6 +4,7 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
+import { Octokit } from "octokit";
 
 import { agentContext } from "./server";
 import { uploadWorkerScript } from "./server";
@@ -83,7 +84,7 @@ const removeScheduledTask = tool({
     if (!agent) {
       throw new Error("No agent found");
     }
-    
+
     try {
       const result = await agent.cancelSchedule(id);
       if (result) {
@@ -109,32 +110,34 @@ const listScheduledTasks = tool({
     if (!agent) {
       throw new Error("No agent found");
     }
-    
+
     try {
       const schedules = agent.getSchedules();
-      
+
       if (schedules.length === 0) {
         return "No scheduled tasks found.";
       }
-      
-      const tasksInfo = schedules.map(schedule => {
-        let timeInfo = "";
-        
-        // Handle different schedule types
-        if ('type' in schedule) {
-          if (schedule.type === 'scheduled' && 'time' in schedule) {
-            const date = new Date(schedule.time);
-            timeInfo = `scheduled for ${date.toLocaleString()}`;
-          } else if (schedule.type === 'cron' && 'cron' in schedule) {
-            timeInfo = `recurring with cron pattern: ${schedule.cron}`;
-          } else if (schedule.type === 'delayed' && 'delay' in schedule) {
-            timeInfo = `delayed by ${schedule.delay} seconds`;
+
+      const tasksInfo = schedules
+        .map((schedule) => {
+          let timeInfo = "";
+
+          // Handle different schedule types
+          if ("type" in schedule) {
+            if (schedule.type === "scheduled" && "time" in schedule) {
+              const date = new Date(schedule.time);
+              timeInfo = `scheduled for ${date.toLocaleString()}`;
+            } else if (schedule.type === "cron" && "cron" in schedule) {
+              timeInfo = `recurring with cron pattern: ${schedule.cron}`;
+            } else if (schedule.type === "delayed" && "delay" in schedule) {
+              timeInfo = `delayed by ${schedule.delay} seconds`;
+            }
           }
-        }
-        
-        return `- ID: ${schedule.id}, ${timeInfo}, Callback: ${schedule.callback}, Payload: ${schedule.payload}`;
-      }).join("\n");
-      
+
+          return `- ID: ${schedule.id}, ${timeInfo}, Callback: ${schedule.callback}, Payload: ${schedule.payload}`;
+        })
+        .join("\n");
+
       return `Scheduled tasks:\n${tasksInfo}`;
     } catch (error) {
       console.error("Error listing scheduled tasks:", error);
@@ -148,7 +151,10 @@ const FileSchema = z.object({
   content: z.string().describe("Content of the file"),
   created: z.string().describe("ISO timestamp of file creation"),
   modified: z.string().describe("ISO timestamp of last modification"),
-  streaming: z.boolean().optional().describe("Whether the file is currently being streamed")
+  streaming: z
+    .boolean()
+    .optional()
+    .describe("Whether the file is currently being streamed"),
 });
 
 /**
@@ -181,7 +187,9 @@ const getFileSystem = tool({
 const setFiles = tool({
   description: "Update the file system structure in the agent's state",
   parameters: z.object({
-    files: z.record(z.string(), FileSchema).describe("Object with file paths as keys and file data as values"),
+    files: z
+      .record(z.string(), FileSchema)
+      .describe("Object with file paths as keys and file data as values"),
   }),
   execute: async ({ files }) => {
     console.log("setFiles called with:", files);
@@ -205,11 +213,17 @@ const setFiles = tool({
  * Tool to create or update a single file in the file system
  */
 const createOrUpdateFile = tool({
-  description: "Create a new file or update an existing file in the file system",
+  description:
+    "Create a new file or update an existing file in the file system",
   parameters: z.object({
-    path: z.string().describe("File path (e.g., 'src/index.ts', 'wrangler.jsonc')"),
+    path: z
+      .string()
+      .describe("File path (e.g., 'src/index.ts', 'wrangler.jsonc')"),
     content: z.string().describe("File content"),
-    stream: z.boolean().optional().describe("Whether to stream the content (default: false)")
+    stream: z
+      .boolean()
+      .optional()
+      .describe("Whether to stream the content (default: false)"),
   }),
   execute: async ({ path, content, stream = false }) => {
     try {
@@ -217,66 +231,66 @@ const createOrUpdateFile = tool({
       if (!agent) {
         throw new Error("Agent context not found");
       }
-      
+
       const currentState = agent.state || {};
       const files = { ...(currentState.files || {}) };
       const now = new Date().toISOString();
-      
+
       const fileExists = path in files;
-      
+
       if (stream) {
         // Start streaming mode - initialize with empty content
         files[path] = {
           content: "",
           created: fileExists ? files[path].created : now,
           modified: now,
-          streaming: true
+          streaming: true,
         };
-        
+
         // Update state to initialize streaming
         await agent.setState({ files });
-        
+
         // Start streaming content in chunks
         const chunkSize = 50; // Characters per chunk
         for (let i = 0; i < content.length; i += chunkSize) {
           const chunk = content.substring(i, i + chunkSize);
-          
+
           // Get latest state to ensure we're appending to the most current content
           const latestState = agent.state || {};
           const latestFiles = { ...(latestState.files || {}) };
-          
+
           if (latestFiles[path]) {
             // Append chunk to existing content
             latestFiles[path] = {
               ...latestFiles[path],
               content: latestFiles[path].content + chunk,
-              modified: new Date().toISOString()
+              modified: new Date().toISOString(),
             };
-            
+
             // Update state with new chunk
             await agent.setState({ files: latestFiles });
-            
+
             // Small delay to simulate streaming and allow UI to update
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
           }
         }
-        
+
         // Finalize streaming
         const finalState = agent.state || {};
         const finalFiles = { ...(finalState.files || {}) };
-        
+
         if (finalFiles[path]) {
           finalFiles[path] = {
             ...finalFiles[path],
             streaming: false,
-            modified: new Date().toISOString()
+            modified: new Date().toISOString(),
           };
-          
+
           // Update state to mark streaming as complete
           await agent.setState({ files: finalFiles });
         }
-        
-        return `File '${path}' has been ${fileExists ? 'updated' : 'created'} with streaming successfully.`;
+
+        return `File '${path}' has been ${fileExists ? "updated" : "created"} with streaming successfully.`;
       } else {
         // Regular non-streaming update
         if (fileExists) {
@@ -285,7 +299,7 @@ const createOrUpdateFile = tool({
             ...files[path],
             content,
             modified: now,
-            streaming: false
+            streaming: false,
           };
         } else {
           // Create new file
@@ -293,20 +307,20 @@ const createOrUpdateFile = tool({
             content,
             created: now,
             modified: now,
-            streaming: false
+            streaming: false,
           };
         }
-        
+
         // Update state
         await agent.setState({ files });
-        
-        return `File '${path}' has been ${fileExists ? 'updated' : 'created'} successfully.`;
+
+        return `File '${path}' has been ${fileExists ? "updated" : "created"} successfully.`;
       }
     } catch (error) {
       console.error(`Error creating/updating file '${path}':`, error);
       return `Error creating/updating file: ${error}`;
     }
-  }
+  },
 });
 
 /**
@@ -317,7 +331,10 @@ const streamFileChunk = tool({
   parameters: z.object({
     path: z.string().describe("File path of the streaming file"),
     chunk: z.string().describe("Content chunk to append"),
-    isComplete: z.boolean().optional().describe("Whether this is the final chunk (default: false)")
+    isComplete: z
+      .boolean()
+      .optional()
+      .describe("Whether this is the final chunk (default: false)"),
   }),
   execute: async ({ path, chunk, isComplete = false }) => {
     try {
@@ -325,34 +342,34 @@ const streamFileChunk = tool({
       if (!agent) {
         throw new Error("Agent context not found");
       }
-      
+
       const currentState = agent.state || {};
       const files = { ...(currentState.files || {}) };
-      
+
       // Check if file exists and is in streaming mode
       if (!files[path]) {
         return `Error: File '${path}' does not exist.`;
       }
-      
+
       // Append chunk to existing content
       files[path] = {
         ...files[path],
         content: files[path].content + chunk,
         modified: new Date().toISOString(),
-        streaming: !isComplete
+        streaming: !isComplete,
       };
-      
+
       // Update state
       await agent.setState({ files });
-      
-      return isComplete 
-        ? `File '${path}' streaming completed successfully.` 
+
+      return isComplete
+        ? `File '${path}' streaming completed successfully.`
         : `Chunk appended to '${path}' successfully.`;
     } catch (error) {
       console.error(`Error streaming chunk to file '${path}':`, error);
       return `Error streaming chunk: ${error}`;
     }
-  }
+  },
 });
 
 /**
@@ -369,27 +386,211 @@ const deleteFile = tool({
       if (!agent) {
         throw new Error("Agent context not found");
       }
-      
+
       const currentState = agent.state || {};
       const files = { ...(currentState.files || {}) };
-      
+
       // Check if file exists
       if (!files[path]) {
         return `File '${path}' does not exist.`;
       }
-      
+
       // Delete file
       delete files[path];
-      
+
       // Update state
       await agent.setState({ files });
-      
+
       return `File '${path}' has been deleted successfully.`;
     } catch (error) {
       console.error(`Error deleting file '${path}':`, error);
       return `Error deleting file: ${error}`;
     }
-  }
+  },
+});
+
+/**
+ * Tool to publish files to GitHub
+ */
+const publishToGitHub = tool({
+  description: "Publish files from the agent's state to a GitHub repository",
+  parameters: z.object({
+    owner: z
+      .string()
+      .describe("GitHub username or organization name that owns the repository"),
+    repo: z.string().describe("GitHub repository name"),
+    branch: z
+      .string()
+      .optional()
+      .default("main")
+      .describe("Branch to push to (default: main)"),
+    commitMessage: z.string().describe("Commit message for the changes"),
+    token: z
+      .string()
+      .optional()
+      .describe(
+        "GitHub personal access token (if not provided, will use environment variable)"
+      ),
+  }),
+  execute: async ({
+    owner,
+    repo,
+    branch = "main",
+    commitMessage,
+    token,
+  }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get files from agent state
+      const currentState = agent.state || {};
+      const files = currentState.files || {};
+
+      console.log("Publishing files to GitHub:", files);
+
+      if (Object.keys(files).length === 0) {
+        return "No files to publish. Create some files first.";
+      }
+
+      // Use provided token or get from environment
+      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
+      }
+
+      // Initialize Octokit
+      const octokit = new Octokit({
+        auth: authToken,
+      });
+
+      // Check if repository exists and get its state
+      let baseCommitSha;
+      let baseTreeSha;
+      let branchExists = true;
+      
+      try {
+        // Get repository info
+        const { data: repoData } = await octokit.rest.repos.get({
+          owner,
+          repo,
+        });
+        
+        console.log(`Repository ${owner}/${repo} exists`);
+        
+        try {
+          // Try to get the branch reference
+          const { data: refData } = await octokit.rest.git.getRef({
+            owner,
+            repo,
+            ref: `heads/${branch}`,
+          });
+          
+          // Branch exists
+          baseCommitSha = refData.object.sha;
+          
+          // Get the base tree
+          const { data: baseCommit } = await octokit.rest.git.getCommit({
+            owner,
+            repo,
+            commit_sha: baseCommitSha,
+          });
+          
+          baseTreeSha = baseCommit.tree.sha;
+        } catch (branchError) {
+          // Branch doesn't exist, use the default branch as base
+          console.log(`Branch '${branch}' not found, will create it using default branch as base`);
+          branchExists = false;
+          
+          const defaultBranch = repoData.default_branch;
+          console.log(`Using default branch '${defaultBranch}' as base`);
+          
+          // Get the SHA of the default branch
+          const { data: defaultBranchData } = await octokit.rest.git.getRef({
+            owner,
+            repo,
+            ref: `heads/${defaultBranch}`,
+          });
+          
+          baseCommitSha = defaultBranchData.object.sha;
+          
+          // Get the base tree
+          const { data: baseCommit } = await octokit.rest.git.getCommit({
+            owner,
+            repo,
+            commit_sha: baseCommitSha,
+          });
+          
+          baseTreeSha = baseCommit.tree.sha;
+        }
+      } catch (error) {
+        console.error("Error getting repository information:", error);
+        return `Error: Could not get repository information. Make sure the repository exists and you have access to it.`;
+      }
+
+      // Create blobs for each file
+      const fileBlobs = await Promise.all(
+        Object.entries(files).map(async ([path, fileData]) => {
+          const { data } = await octokit.rest.git.createBlob({
+            owner,
+            repo,
+            content: fileData.content,
+            encoding: "utf-8",
+          });
+
+          return {
+            path,
+            mode: "100644" as const, // Regular file
+            type: "blob" as const,
+            sha: data.sha,
+          };
+        })
+      );
+
+      // Create a new tree with the file blobs
+      const { data: newTree } = await octokit.rest.git.createTree({
+        owner,
+        repo,
+        base_tree: baseTreeSha,
+        tree: fileBlobs,
+      });
+
+      // Create a new commit
+      const { data: newCommit } = await octokit.rest.git.createCommit({
+        owner,
+        repo,
+        message: commitMessage,
+        tree: newTree.sha,
+        parents: [baseCommitSha],
+      });
+
+      // Create or update the branch reference
+      if (branchExists) {
+        // Update existing branch
+        await octokit.rest.git.updateRef({
+          owner,
+          repo,
+          ref: `heads/${branch}`,
+          sha: newCommit.sha,
+        });
+      } else {
+        // Create new branch
+        await octokit.rest.git.createRef({
+          owner,
+          repo,
+          ref: `refs/heads/${branch}`,
+          sha: newCommit.sha,
+        });
+      }
+
+      return `Successfully published ${Object.keys(files).length} files to GitHub repository ${owner}/${repo} on branch ${branch}.`;
+    } catch (error) {
+      console.error("Error publishing to GitHub:", error);
+      return `Error publishing to GitHub: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
 });
 
 /**
@@ -407,6 +608,7 @@ export const tools = {
   createOrUpdateFile,
   streamFileChunk,
   deleteFile,
+  publishToGitHub,
 };
 
 /**
