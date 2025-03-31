@@ -97,7 +97,11 @@ export const agentContext = new AsyncLocalStorage<Chat>();
 
 // Define the state structure for the agent
 type State = {
-  files: any[];
+  files: Record<string, {
+    content: string;
+    created: string;
+    modified: string;
+  }>;
 };
 
 /**
@@ -106,7 +110,7 @@ type State = {
 export class Chat extends AIChatAgent<Env, State> {
   // Set the initial state for the agent
   initialState: State = {
-    files: [],
+    files: {},
   };
 
   /**
@@ -145,6 +149,18 @@ If the user asks to list or view scheduled tasks, use the listScheduledTasks too
 You can also help the user with file management. You can create, edit, and delete files in the file system.
 ALWAYS add code as files to the file system unless asked otherwise. You can use the getFileSystem tool to view the current file system structure.
 DON'T display code in the chat unless asked by the user.
+
+The file system is organized as a flat structure where each file is identified by its path:
+- Use paths like "src/index.ts", "public/styles.css", or "wrangler.jsonc" as unique identifiers
+- Each file has content, creation timestamp, and last modified timestamp
+- Use the createOrUpdateFile tool to create new files or update existing ones
+- Use the deleteFile tool to remove files from the system
+- Use the getFileSystem tool to view the current file structure
+
+When working with files:
+- Always use forward slashes (/) in file paths, even on Windows
+- Include the file extension in the path
+- Organize files in logical directories (e.g., src/, public/, config/)
 
 If a user asks for many features at once, you do not have to implement them all as long as the ones you implement are FULLY FUNCTIONAL and you clearly communicate to the user that you didn't implement some specific features.
 
