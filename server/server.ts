@@ -101,6 +101,7 @@ type State = {
     content: string;
     created: string;
     modified: string;
+    streaming?: boolean;
   }>;
 };
 
@@ -154,6 +155,9 @@ The file system is organized as a flat structure where each file is identified b
 - Use paths like "src/index.ts", "public/styles.css", or "wrangler.jsonc" as unique identifiers
 - Each file has content, creation timestamp, and last modified timestamp
 - Use the createOrUpdateFile tool to create new files or update existing ones
+  - Set the stream parameter to true to enable real-time streaming of file content
+  - For large files, streaming provides a better user experience as content appears incrementally
+- Use the streamFileChunk tool to append content to a streaming file
 - Use the deleteFile tool to remove files from the system
 - Use the getFileSystem tool to view the current file structure
 

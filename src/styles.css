@@ -10,13 +10,13 @@
 /* Tailwind config */
 @theme {
   /* Type */
-  --text-xs: 10px;
+  --text-xs: 12px;
   --text-xs--line-height: calc(1 / 0.5);
 
-  --text-sm: 12px;
+  --text-sm: 14px;
   --text-sm--line-height: calc(1 / 0.75);
 
-  --text-base: 14px;
+  --text-base: 16px;
   --text-base--line-height: calc(1.25 / 0.875);
 
   /* Easings & transitions */

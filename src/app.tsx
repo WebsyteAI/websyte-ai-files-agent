@@ -123,9 +123,9 @@ export default function Chat() {
 
   return (
     <div className="h-[100vh] w-full p-4 flex justify-center items-center bg-fixed overflow-hidden">
-      <div className="flex w-full h-[calc(100vh-2rem)] mx-auto max-w-5xl gap-4">
+      <div className="flex w-full h-[calc(100vh-2rem)] mx-auto gap-4">
         {/* Chat Panel */}
-        <div className="h-full w-full max-w-lg flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
+        <div className="h-full w-1/3 flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
           <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10">
             <div className="flex items-center justify-center h-8 w-8">
               <svg
@@ -430,9 +430,8 @@ export default function Chat() {
         </div>
 
         {/* Storage Panel */}
-        {/* Storage Panel */}
         {showStoragePanel && (
-          <div className="h-full w-80 flex-shrink-0">
+          <div className="h-full w-2/3 flex-grow">
             {/* Pass agentState and loading props */}
             <StoragePanel agentState={agentState} loading={agentStateLoading} />
           </div>
