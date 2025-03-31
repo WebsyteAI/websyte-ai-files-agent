@@ -9,15 +9,11 @@
     />
     <meta name="theme-color" content="#000000" />
 
-    <title>AI Chat Agent</title>
+    <title>Websyte.ai</title>
 
     <script>
-      document.documentElement.classList.toggle(
-        "dark",
-        localStorage.theme === "dark" ||
-          (!("theme" in localStorage) &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches)
-      );
+      // Always use dark mode
+      document.documentElement.classList.add("dark");
     </script>
 
     <!-- Favicon support -->

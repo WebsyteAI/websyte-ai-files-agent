@@ -31,11 +31,8 @@ const toolsRequiringConfirmation: (keyof typeof tools)[] = [
 ];
 
 export default function Chat() {
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    // Check localStorage first, default to dark if not found
-    const savedTheme = localStorage.getItem("theme");
-    return (savedTheme as "dark" | "light") || "dark";
-  });
+  // Always use dark mode
+  const [theme] = useState<"dark">("dark");
   const [showDebug, setShowDebug] = useState(false);
   const [showStoragePanel, setShowStoragePanel] = useState(true);
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
@@ -47,28 +44,16 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    // Apply theme class on mount and when theme changes
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-      document.documentElement.classList.remove("light");
-    } else {
-      document.documentElement.classList.remove("dark");
-      document.documentElement.classList.add("light");
-    }
-
-    // Save theme preference to localStorage
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    // Always apply dark mode
+    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("light");
+  }, []);
 
   // Scroll to bottom on mount
   useEffect(() => {
     scrollToBottom();
   }, [scrollToBottom]);
 
-  const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-  };
 
   // Generate or get worker ID from query params and update URL if needed
   const [workerId] = useState(() => {
@@ -142,10 +127,10 @@ export default function Chat() {
   };
 
   return (
-    <div className="h-[100vh] w-full p-4 flex justify-center items-center bg-fixed overflow-hidden">
-      <div className="flex w-full h-[calc(100vh-2rem)] mx-auto gap-4">
+    <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
+      <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[100dvh] mx-auto md:gap-4 relative">
         {/* Chat Panel */}
-        <div className="h-full w-1/3 flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
+        <div className="h-full md:w-1/3 w-full flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
           <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10">
             <div className="flex items-center justify-center h-8 w-8">
               <svg
@@ -166,7 +151,7 @@ export default function Chat() {
             </div>
 
             <div className="flex-1">
-              <h2 className="font-semibold text-base">AI Chat Agent</h2>
+              {/* <h2 className="font-semibold text-base">AI Chat Agent</h2> */}
             </div>
 
             <div className="flex items-center gap-2 mr-2">
@@ -188,15 +173,6 @@ export default function Chat() {
               <ArrowsHorizontal size={20} />
             </Button>
 
-            <Button
-              variant="ghost"
-              size="md"
-              shape="square"
-              className="rounded-full h-9 w-9"
-              onClick={toggleTheme}
-            >
-              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-            </Button>
 
             <Button
               variant="ghost"
@@ -451,9 +427,13 @@ export default function Chat() {
 
         {/* Storage Panel */}
         {showStoragePanel && (
-          <div className="h-full w-2/3 flex-grow">
+          <div className="h-[100dvh] w-[100dvw] md:h-full md:w-2/3 flex-grow md:mt-0 absolute md:relative top-0 left-0 z-20">
             {/* Pass agentState and loading props */}
-            <StoragePanel agentState={agentState} loading={agentStateLoading} />
+            <StoragePanel 
+              agentState={agentState} 
+              loading={agentStateLoading} 
+              onToggle={() => setShowStoragePanel(false)}
+            />
           </div>
         )}
       </div>

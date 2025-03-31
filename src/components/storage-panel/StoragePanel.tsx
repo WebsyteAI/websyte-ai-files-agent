@@ -1,7 +1,69 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
-import { FolderOpen, ArrowClockwise, CloudArrowUp, CaretDown, CaretRight } from "@phosphor-icons/react";
+import { FolderOpen, ArrowClockwise, CloudArrowUp, CaretDown, CaretRight, ArrowsHorizontal } from "@phosphor-icons/react";
+import { EditorView, basicSetup } from "codemirror";
+import { EditorState } from "@codemirror/state";
+import { javascript } from "@codemirror/lang-javascript";
+import { html } from "@codemirror/lang-html";
+import { css } from "@codemirror/lang-css";
+import { oneDark } from "@codemirror/theme-one-dark";
+
+// CodeMirror component
+interface CodeEditorProps {
+  code: string;
+  filename: string;
+}
+
+function CodeEditor({ code, filename }: CodeEditorProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  
+  useEffect(() => {
+    if (!editorRef.current) return;
+    
+    // Clean up previous editor instance
+    if (viewRef.current) {
+      viewRef.current.destroy();
+    }
+    
+    // Determine language based on file extension
+    const extension = filename.split('.').pop()?.toLowerCase() || '';
+    let lang = javascript();
+    
+    if (extension === 'html' || extension === 'htm') {
+      lang = html();
+    } else if (extension === 'css') {
+      lang = css();
+    }
+    
+    // Create editor state
+    const state = EditorState.create({
+      doc: code,
+      extensions: [
+        basicSetup,
+        lang,
+        oneDark,
+        EditorView.editable.of(false), // Read-only mode
+        EditorView.lineWrapping,
+      ],
+    });
+    
+    // Create editor view
+    const view = new EditorView({
+      state,
+      parent: editorRef.current,
+    });
+    
+    viewRef.current = view;
+    
+    return () => {
+      view.destroy();
+    };
+  }, [code, filename]);
+  
+  return <div ref={editorRef} className="w-full h-full text-xs md:text-sm" />;
+}
 
 // Define the file structure
 interface FileData {
@@ -20,12 +82,37 @@ interface AgentState {
 interface StoragePanelProps {
   agentState: AgentState | null;
   loading: boolean;
+  onToggle?: () => void;
 }
 
-export function StoragePanel({ agentState, loading }: StoragePanelProps) {
+export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
-  const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
+  // Initialize all files as expanded by default
+  const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(() => {
+    const initialState: Record<string, boolean> = {};
+    if (agentState?.files) {
+      Object.keys(agentState.files).forEach(path => {
+        initialState[path] = true;
+      });
+    }
+    return initialState;
+  });
+  
+  // Update expanded files state when new files are added
+  useEffect(() => {
+    if (agentState?.files) {
+      setExpandedFiles(prev => {
+        const newState = { ...prev };
+        Object.keys(agentState.files!).forEach(path => {
+          if (newState[path] === undefined) {
+            newState[path] = true; // Set new files to expanded by default
+          }
+        });
+        return newState;
+      });
+    }
+  }, [agentState?.files]);
   
   // Get worker ID directly from URL query parameter
   const [workerId] = useState<string>(() => {
@@ -105,7 +192,7 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
   };
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800">
+    <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
       <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center h-8 w-8">
@@ -117,6 +204,17 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
         </div>
         
         <div className="flex items-center gap-2">
+          {onToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              shape="square"
+              className="rounded-full h-9 w-9 md:hidden"
+              onClick={onToggle}
+            >
+              <ArrowsHorizontal size={20} />
+            </Button>
+          )}
           {hasStreamingFiles && (
             <div className="flex items-center text-[#F48120] mr-2">
               <ArrowClockwise size={18} className="animate-spin mr-1" />
@@ -172,9 +270,9 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
                     {expandedFiles[path] && (
                       <>
                         <div className="px-0">
-                          <pre className="text-sm font-mono whitespace-pre-wrap break-all px-4 py-3">
-                            {fileData.content}
-                          </pre>
+                          <div className="code-editor bg-neutral-50 dark:bg-neutral-900 overflow-auto border border-neutral-200 dark:border-neutral-800 rounded-sm text-xs md:text-sm">
+                            <CodeEditor code={fileData.content} filename={path} />
+                          </div>
                         </div>
                         <div className="px-4 py-2 text-sm text-neutral-500 border-t border-neutral-300 dark:border-neutral-800">
                           <div>Created: {new Date(fileData.created).toLocaleString()}</div>
