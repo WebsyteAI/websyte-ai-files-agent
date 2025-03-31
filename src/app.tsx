@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
 import type { Message } from "@ai-sdk/react";
@@ -272,12 +273,26 @@ export default function Chat() {
                                         🕒
                                       </span>
                                     )}
-                                    <p className="text-sm whitespace-pre-wrap">
+                                    <ReactMarkdown
+                                      components={{
+                                        p: ({ children }) => <p className="text-sm">{children}</p>,
+                                        a: ({ href, children }) => <a href={href} className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                                        code: ({ children }) => <code className="bg-neutral-200 dark:bg-neutral-800 px-1 py-0.5 rounded text-xs">{children}</code>,
+                                        pre: ({ children }) => <pre className="bg-neutral-200 dark:bg-neutral-800 p-2 rounded my-2 overflow-auto text-xs">{children}</pre>,
+                                        ul: ({ children }) => <ul className="list-disc pl-5 my-2">{children}</ul>,
+                                        ol: ({ children }) => <ol className="list-decimal pl-5 my-2">{children}</ol>,
+                                        li: ({ children }) => <li className="my-1">{children}</li>,
+                                        h1: ({ children }) => <h1 className="text-lg font-bold my-2">{children}</h1>,
+                                        h2: ({ children }) => <h2 className="text-base font-bold my-2">{children}</h2>,
+                                        h3: ({ children }) => <h3 className="text-sm font-bold my-1">{children}</h3>,
+                                        blockquote: ({ children }) => <blockquote className="border-l-2 border-neutral-400 pl-2 my-2 italic">{children}</blockquote>,
+                                      }}
+                                    >
                                       {part.text.replace(
                                         /^scheduled message: /,
                                         ""
                                       )}
-                                    </p>
+                                    </ReactMarkdown>
                                   </Card>
                                   <p
                                     className={`text-xs text-muted-foreground mt-1 ${
