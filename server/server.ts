@@ -17,116 +17,6 @@ import CloudflareSystemPrompt from "./cloudflare-system-context.txt";
 import type { ExecutionContext, ExportedHandler, Request as CfRequest, Response as CfResponse, IncomingRequestCfProperties } from "@cloudflare/workers-types"; // Added import
 // import { env } from "cloudflare:workers";
 
-// Helper function to upload worker script to Cloudflare Dispatch Namespace
-export async function uploadWorkerScript(
-	env: Env,
-	scriptName: string,
-	files: Record<string, { content: string }>,
-	mainModule: string = "src/index.mjs", // Default to src/index.mjs
-): Promise<{ success: boolean; errors?: any[] }> {
-	const accountId = env.DISPATCH_NAMESPACE_ACCOUNT_ID;
-	const apiToken = env.CLOUDFLARE_API_KEY;
-	const namespace = env.DISPATCH_NAMESPACE_NAME || "testing"; // As defined in wrangler.jsonc
-
-	if (!accountId || !apiToken) {
-		console.error(
-			"Namespace Account ID or API Token not configured in environment.",
-		);
-		return {
-			success: false,
-			errors: ["Cloudflare credentials not configured."],
-		};
-	}
-
-	// Always use src/index.mjs as the main module
-	const fixedMainModule = "src/index.mjs";
-
-	// Check if src/index.mjs exists
-	if (!files[fixedMainModule]) {
-		return {
-			success: false,
-			errors: [`Main module '${fixedMainModule}' not found in files. Please create this file before deploying.`],
-		};
-	}
-
-	const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/dispatch/namespaces/${namespace}/scripts/${scriptName}`;
-
-	// Use FormData to upload the script content
-	const formData = new FormData();
-
-	// Helper function to determine MIME type based on file extension
-	function getMimeType(path: string) {
-		if (path.endsWith('.mjs')) return 'application/javascript+module';
-		if (path.endsWith('.json')) return 'application/json';
-		return 'text/plain';
-	}
-
-	// Create metadata file
-	const metadataFile = new File(
-		[JSON.stringify({ main_module: fixedMainModule })],
-		'metadata.json',
-		{ type: 'application/json' }
-	);
-	formData.append("metadata", metadataFile);
-
-	// Add all files to the FormData
-	if (Object.keys(files).length === 0) {
-		return {
-			success: false,
-			errors: ["No files provided for upload."],
-		};
-	}
-
-	// Add all files to FormData
-	for (const [path, file] of Object.entries(files)) {
-		const filename = path.split('/').pop() || path; // Extract filename, default to path if no '/'
-		formData.append(
-			path,
-			new File([file.content], filename, {
-				type: getMimeType(path)
-			}),
-			path
-		);
-	}
-
-	try {
-		const response = await fetch(apiUrl, {
-			method: "PUT",
-			headers: {
-				Authorization: `Bearer ${apiToken}`,
-				// Content-Type is set automatically by fetch when using FormData
-			},
-			body: formData,
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json();
-			console.error(
-				`Failed to upload worker script ${scriptName}:`,
-				response.status,
-				response.statusText,
-				errorData,
-			);
-			// Ensure errorData is treated as potentially having an 'errors' property
-			const apiErrors = (errorData as any)?.errors;
-			return {
-				success: false,
-				errors: Array.isArray(apiErrors) && apiErrors.length > 0
-					? apiErrors
-					: [{ message: response.statusText || "Unknown API error" }],
-			};
-		}
-
-		console.log(`Successfully uploaded worker script: ${scriptName}`);
-		return { success: true };
-	} catch (error) { // Keep type as unknown or any for broader catch
-		console.error(`Error uploading worker script ${scriptName}:`, error);
-		// Ensure error has a message property before accessing it
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		return { success: false, errors: [{ message: errorMessage }] };
-	}
-}
-
 const model = openai("gpt-4o-2024-11-20");
 // Cloudflare AI Gateway
 // const openai = createOpenAI({
@@ -196,7 +86,7 @@ ALWAYS add code as files to the file system unless asked otherwise. You can use 
 DON'T display code in the chat unless asked by the user.
 
 The file system is organized as a flat structure where each file is identified by its path:
-- Use paths like "src/index.mjs", "public/styles.css", or "wrangler.jsonc" as unique identifiers
+- Use paths like "src/index.ts", "public/styles.css", or "wrangler.jsonc" as unique identifiers
 - Each file has content, creation timestamp, and last modified timestamp
 - Use the createOrUpdateFile tool to create new files or update existing ones
   - Set the stream parameter to true to enable real-time streaming of file content
@@ -209,6 +99,12 @@ When working with files:
 - Always use forward slashes (/) in file paths, even on Windows
 - Include the file extension in the path
 - Organize files in logical directories (e.g., src/, public/, config/)
+
+Repo info:
+ALWAYS use the parameters below for the github tool.
+org: WebsyteAI
+repo: wai-1
+commit message: {generate one}
 
 If a user asks for many features at once, you do not have to implement them all as long as the ones you implement are FULLY FUNCTIONAL and you clearly communicate to the user that you didn't implement some specific features.
 
@@ -339,58 +235,6 @@ export default {
       }
     }
     
-    // Handle deployment API endpoint
-    if (url.pathname === '/api/deploy' && request.method === 'POST') {
-      try {
-        const data = await request.json();
-        const { workerId, files, mainModule = 'src/index.mjs' } = data;
-        
-        if (!workerId) {
-          return new Response(
-            JSON.stringify({ success: false, message: 'Worker ID is required' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        if (!files || Object.keys(files).length === 0) {
-          return new Response(
-            JSON.stringify({ success: false, message: 'No files to deploy' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        // Check if main module exists
-        if (!files[mainModule]) {
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: `Main module '${mainModule}' not found in files` 
-            }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        // Deploy the worker
-        const result = await uploadWorkerScript(env, workerId, files, mainModule);
-        
-        return new Response(
-          JSON.stringify(result),
-          { 
-            status: result.success ? 200 : 500, 
-            headers: { 'Content-Type': 'application/json' } 
-          }
-        );
-      } catch (error) {
-        console.error('Error in deploy endpoint:', error);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            message: error instanceof Error ? error.message : 'Unknown error' 
-          }),
-          { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-    }
 
     return (
       // Route the request to our agent or return 404 if not found

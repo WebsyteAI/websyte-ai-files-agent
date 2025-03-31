@@ -3,7 +3,7 @@ import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
 import { Input } from "@/components/input/Input";
 import { Label } from "@/components/label/Label";
-import { FolderOpen, ArrowClockwise, CloudArrowUp, CaretDown, CaretRight, ArrowsHorizontal, GithubLogo } from "@phosphor-icons/react";
+import { FolderOpen, ArrowClockwise, CaretDown, CaretRight, ArrowsHorizontal, GithubLogo } from "@phosphor-icons/react";
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
@@ -181,60 +181,6 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
     }
   };
   
-  // Handle Cloudflare publish button click
-  const handleCloudflarePublish = async () => {
-    if (!agentState?.files || Object.keys(agentState.files).length === 0) {
-      setPublishResult("No files to publish. Create some files first.");
-      return;
-    }
-    
-    if (!workerId) {
-      setPublishResult("Error: No worker ID found. Please refresh the page.");
-      return;
-    }
-    
-    setIsPublishing(true);
-    setPublishResult(null);
-    
-    try {
-      // Always use src/index.mjs as the main module
-      const mainModule = "src/index.mjs";
-      
-      // Check if src/index.mjs exists, if not, create a warning
-      const files = Object.keys(agentState.files);
-      if (!files.includes(mainModule)) {
-        setPublishResult(`Warning: Main module '${mainModule}' not found. Please create this file before publishing.`);
-        setIsPublishing(false);
-        return;
-      }
-      
-      // Call the API endpoint to deploy files
-      const response = await fetch('/api/deploy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workerId,
-          files: agentState.files,
-          mainModule
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Deployment failed');
-      }
-      
-      const result = await response.json();
-      setPublishResult(`Successfully deployed ${fileCount} files to worker '${workerId}'`);
-    } catch (error) {
-      console.error("Error publishing files:", error);
-      setPublishResult(`Error publishing files: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsPublishing(false);
-    }
-  };
 
   return (
     <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
@@ -268,17 +214,6 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
           )}
           
           <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              className="flex items-center gap-1"
-              disabled={isPublishing || fileCount === 0}
-              onClick={handleCloudflarePublish}
-            >
-              <CloudArrowUp size={16} />
-              <span>{isPublishing ? "Publishing..." : "Cloudflare"}</span>
-            </Button>
-            
             <Button
               variant="secondary"
               size="sm"

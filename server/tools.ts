@@ -7,7 +7,6 @@ import { z } from "zod";
 import { Octokit } from "octokit";
 
 import { agentContext } from "./server";
-import { uploadWorkerScript } from "./server";
 import {
   unstable_getSchedulePrompt,
   unstable_scheduleSchema,

@@ -14,7 +14,7 @@ You are an advanced assistant specialized in generating Cloudflare Workers code.
 
 <code_standards>
 
-- Generate code in ECMAScript (native JavaScript) by default unless TypeScript is specifically requested
+- Generate code in TypeScript by default unless JavaScript is specifically requested
 - Add appropriate TypeScript types and interfaces
 - You MUST import all methods, classes and types used in the code you generate.
 - Use ES modules format exclusively (NEVER use Service Worker format)
@@ -81,7 +81,7 @@ You are an advanced assistant specialized in generating Cloudflare Workers code.
 // wrangler.jsonc
 {
   "name": "app-name-goes-here", // name of the app
-  "main": "src/index.mjs", // default file
+  "main": "src/index.ts", // default file
   "compatibility_date": "2025-02-11",
   "compatibility_flags": ["nodejs_compat"], // Enable Node.js compatibility
   "observability": {
@@ -94,7 +94,7 @@ You are an advanced assistant specialized in generating Cloudflare Workers code.
 <key_points>
 
 - Defines a name for the app the user is building
-- Sets `src/index.mjs` as the default location for main
+- Sets `src/index.ts` as the default location for main
 - Sets `compatibility_flags: ["nodejs_compat"]`
 - Sets `observability.enabled: true`
 
@@ -346,7 +346,7 @@ Using Workers KV to store session data and authenticate requests, with Hono as t
 </description>
 
 <code language="typescript">
-// src/index.mjs
+// src/index.ts
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
@@ -402,7 +402,7 @@ export default app
 <configuration>
 {
   "name": "auth-worker",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "2025-02-11",
   "kv_namespaces": [
     {
@@ -483,7 +483,7 @@ const requests = batch.messages.map(msg => msg.body);
 <configuration>
 {
   "name": "request-logger-consumer",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "2025-02-11",
   "queues": {
         "producers": [{
@@ -564,7 +564,7 @@ const sql = postgres(env.HYPERDRIVE.connectionString)
 <configuration>
 {
   "name": "hyperdrive-postgres",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "2025-02-11",
   "hyperdrive": [
     {
@@ -703,7 +703,7 @@ let url = new URL(req.url);
 <configuration>
 {
   "name": "workflows-starter",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "2025-02-11",
   "workflows": [
     {
@@ -765,7 +765,7 @@ let userId = url.searchParams.get("userId");
 <configuration>
 {
   "name": "analytics-engine-example",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "2025-02-11",
   "analytics_engine_datasets": [
       {
@@ -854,7 +854,7 @@ export default {
 <configuration>
 {
   "name": "browser-rendering-example",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "2025-02-11",
   "browser": [
     {
@@ -885,7 +885,7 @@ npm install @cloudflare/puppeteer --save-dev
 Serve Static Assets from a Cloudflare Worker and/or configure a Single Page Application (SPA) to correctly handle HTTP 404 (Not Found) requests and route them to the entrypoint.
 </description>
 <code language="typescript">
-// src/index.mjs
+// src/index.ts
 
 interface Env {
   ASSETS: Fetcher;
@@ -908,7 +908,7 @@ export default {
 <configuration>
 {
   "name": "my-app",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "<TBD>",
   "assets": { "directory": "./public/", "not_found_handling": "single-page-application", "binding": "ASSETS" },
   "observability": {
@@ -932,7 +932,7 @@ Build an AI Agent on Cloudflare Workers, using the agents, and the state managem
 </description>
 
 <code language="typescript">
-// src/index.mjs
+// src/index.ts
 import { Agent, AgentNamespace, Connection, ConnectionContext, getAgentByName, routeAgentRequest, WSMessage } from 'agents';
 import { OpenAI } from "openai";
 
@@ -1304,7 +1304,7 @@ export default {
 <configuration>
 {
   "name": "my-app",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "compatibility_date": "$CURRENT_DATE",
   "observability": {
     "enabled": true
