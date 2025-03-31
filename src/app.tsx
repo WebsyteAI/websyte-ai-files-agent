@@ -70,9 +70,29 @@ export default function Chat() {
     setTheme(newTheme);
   };
 
-  // Update useAgent hook to include onStateUpdate
+  // Generate or get worker ID from query params and update URL if needed
+  const [workerId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('worker');
+    
+    // If valid worker ID exists in URL, use it
+    if (idParam?.startsWith('wai-')) {
+      return idParam;
+    }
+    
+    // Otherwise generate a new one and update URL
+    // Create a shorter ID by taking first 8 chars of UUID
+    const newId = `wai-${crypto.randomUUID().split('-')[0]}`;
+    const url = new URL(window.location.href);
+    url.searchParams.set('worker', newId);
+    window.history.replaceState({}, '', url);
+    return newId;
+  });
+
+  // Update useAgent hook to include name and onStateUpdate
   const agent = useAgent({
     agent: "chat",
+    name: workerId, // Set agent name to the worker ID
     onStateUpdate: (newState: any) => {
       console.log("Agent state updated:", newState);
       setAgentState(newState);

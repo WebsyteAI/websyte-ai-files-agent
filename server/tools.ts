@@ -6,6 +6,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { agentContext } from "./server";
+import { uploadWorkerScript } from "./server";
 import {
   unstable_getSchedulePrompt,
   unstable_scheduleSchema,
