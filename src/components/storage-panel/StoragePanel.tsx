@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
-import { FolderOpen, ArrowClockwise, CloudArrowUp } from "@phosphor-icons/react";
+import { FolderOpen, ArrowClockwise, CloudArrowUp, CaretDown, CaretRight } from "@phosphor-icons/react";
 
 // Define the file structure
 interface FileData {
@@ -25,12 +25,22 @@ interface StoragePanelProps {
 export function StoragePanel({ agentState, loading }: StoragePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
+  const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
+  
   // Get worker ID directly from URL query parameter
   const [workerId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('worker');
     return idParam?.startsWith('wai-') ? idParam : "";
   });
+  
+  // Toggle file expansion
+  const toggleFileExpansion = (path: string) => {
+    setExpandedFiles(prev => ({
+      ...prev,
+      [path]: !prev[path]
+    }));
+  };
   
   // Check if any files are currently streaming
   const hasStreamingFiles = agentState?.files && 
@@ -95,13 +105,15 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
   };
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden">
-      <div className="p-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-between">
-        <div className="flex items-center">
-          <div className="flex items-center justify-center h-8 w-8 mr-2">
+    <Card className="h-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800">
+      <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center h-8 w-8">
             <FolderOpen size={24} className="text-[#F48120]" />
           </div>
-          <h2 className="font-semibold text-lg">Agent State</h2>
+          <div className="flex-1">
+            <h2 className="font-semibold text-base">{workerId}</h2>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -131,21 +143,7 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
         </div>
       )}
       
-      {/* Worker ID display */}
-      <div className="px-3 py-2 border-b border-neutral-300 dark:border-neutral-800 flex items-center">
-        <label htmlFor="worker-id" className="text-sm mr-2">
-          Worker ID:
-        </label>
-        <input
-          id="worker-id"
-          type="text"
-          value={workerId}
-          readOnly
-          className="flex-1 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-700 rounded bg-white dark:bg-neutral-900 opacity-75"
-        />
-      </div>
-      
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto px-0">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin h-6 w-6 border-2 border-[#F48120] border-t-transparent rounded-full"></div>
@@ -153,11 +151,17 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
         ) : (
           <div>
             {agentState?.files && Object.keys(agentState.files).length > 0 ? (
-              <div className="space-y-4">
+              <div>
                 {Object.entries(agentState.files).map(([path, fileData]) => (
-                  <div key={path} className="border border-neutral-300 dark:border-neutral-800 rounded-md overflow-hidden">
-                    <div className={`p-3 text-sm font-semibold flex items-center justify-between ${fileData.streaming ? 'bg-[#F48120]/10' : 'bg-neutral-100 dark:bg-neutral-900'}`}>
-                      <span>{path}</span>
+                  <div key={path} className="border-b border-neutral-300 dark:border-neutral-800">
+                    <div 
+                      className={`px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer ${fileData.streaming ? 'bg-[#F48120]/10' : ''}`}
+                      onClick={() => toggleFileExpansion(path)}
+                    >
+                      <div className="flex items-center">
+                        {expandedFiles[path] ? <CaretDown size={16} className="mr-2" /> : <CaretRight size={16} className="mr-2" />}
+                        <span>{path}</span>
+                      </div>
                       {fileData.streaming && (
                         <div className="flex items-center text-[#F48120]">
                           <ArrowClockwise size={16} className="animate-spin mr-1" />
@@ -165,15 +169,19 @@ export function StoragePanel({ agentState, loading }: StoragePanelProps) {
                         </div>
                       )}
                     </div>
-                    <div className="p-3 max-h-60 overflow-auto">
-                      <pre className="text-sm font-mono whitespace-pre-wrap break-all">
-                        {fileData.content}
-                      </pre>
-                    </div>
-                    <div className="p-3 text-sm text-neutral-500 border-t border-neutral-300 dark:border-neutral-800">
-                      <div>Created: {new Date(fileData.created).toLocaleString()}</div>
-                      <div>Modified: {new Date(fileData.modified).toLocaleString()}</div>
-                    </div>
+                    {expandedFiles[path] && (
+                      <>
+                        <div className="px-0">
+                          <pre className="text-sm font-mono whitespace-pre-wrap break-all px-4 py-3">
+                            {fileData.content}
+                          </pre>
+                        </div>
+                        <div className="px-4 py-2 text-sm text-neutral-500 border-t border-neutral-300 dark:border-neutral-800">
+                          <div>Created: {new Date(fileData.created).toLocaleString()}</div>
+                          <div>Modified: {new Date(fileData.modified).toLocaleString()}</div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
