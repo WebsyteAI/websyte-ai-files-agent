@@ -723,6 +723,192 @@ const publishToGitHub = tool({
 });
 
 /**
+ * Tool to sync files from GitHub to the agent's state
+ */
+const syncFromGitHub = tool({
+  description: "Sync files from a GitHub repository to the agent's state (repo is source of truth)",
+  parameters: z.object({
+    owner: z
+      .string()
+      .describe("GitHub username or organization name that owns the repository"),
+    repo: z.string().describe("GitHub repository name"),
+    branch: z
+      .string()
+      .optional()
+      .default("main")
+      .describe("Branch to pull from (default: main)"),
+    path: z
+      .string()
+      .optional()
+      .describe("Optional path within the repository to sync (default: entire repo)"),
+    token: z
+      .string()
+      .optional()
+      .describe(
+        "GitHub personal access token (if not provided, will use environment variable)"
+      ),
+  }),
+  execute: async ({
+    owner,
+    repo,
+    branch = "main",
+    path = "",
+    token,
+  }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      console.log(`Syncing files from GitHub: ${owner}/${repo}/${branch}${path ? `/${path}` : ''}`);
+
+      // Use provided token or get from environment
+      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+
+      // Define types for GitHub API responses
+      type GitHubFileContent = {
+        name: string;
+        path: string;
+        sha: string;
+        size: number;
+        url: string;
+        html_url: string;
+        git_url: string;
+        download_url: string;
+        type: "file";
+        content: string;
+        encoding: string;
+      };
+      
+      type GitHubDirectoryItem = {
+        name: string;
+        path: string;
+        sha: string;
+        size: number;
+        url: string;
+        html_url: string;
+        git_url: string;
+        download_url: string | null;
+        type: "file" | "dir";
+      };
+      
+      type GitHubContent = GitHubFileContent | GitHubDirectoryItem[];
+      
+      // Type for our file system structure
+      type FileSystemRecord = Record<string, {
+        content: string;
+        created: string;
+        modified: string;
+        streaming: boolean;
+      }>;
+
+      // Function to recursively fetch files from a directory
+      async function fetchDirectoryContents(repoPath = ""): Promise<FileSystemRecord> {
+        const encodedPath = repoPath ? encodeURIComponent(repoPath) : "";
+        const url = `${apiBaseUrl}/repos/${owner}/${repo}/contents/${encodedPath}?ref=${branch}`;
+        
+        console.log(`Fetching contents from: ${url}`);
+        
+        const response = await fetch(url, {
+          method: "GET",
+          headers,
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`GitHub API error (${response.status}): ${errorText}`);
+          throw new Error(`Failed to fetch repository contents: ${response.status}. Details: ${errorText}`);
+        }
+        
+        const contents = await response.json() as GitHubContent;
+        
+        // If contents is an array, it's a directory
+        if (Array.isArray(contents)) {
+          let files: FileSystemRecord = {};
+          
+          // Process each item in the directory
+          for (const item of contents) {
+            if (item.type === "file") {
+              // Fetch file content
+              const fileResponse = await fetch(item.url, {
+                method: "GET",
+                headers,
+              });
+              
+              if (!fileResponse.ok) {
+                console.error(`Failed to fetch file ${item.path}: ${fileResponse.status}`);
+                continue;
+              }
+              
+              const fileData = await fileResponse.json() as GitHubFileContent;
+              const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+              
+              // Add file to our files object
+              files[item.path] = {
+                content,
+                created: new Date().toISOString(), // We don't have creation date from GitHub
+                modified: new Date().toISOString(),
+                streaming: false,
+              };
+              
+              console.log(`Synced file: ${item.path}`);
+            } else if (item.type === "dir") {
+              // Recursively fetch directory contents
+              const subDirFiles = await fetchDirectoryContents(item.path);
+              files = { ...files, ...subDirFiles };
+            }
+          }
+          
+          return files;
+        } else {
+          // Single file response
+          const content = Buffer.from(contents.content, 'base64').toString('utf-8');
+          
+          return {
+            [contents.path]: {
+              content,
+              created: new Date().toISOString(),
+              modified: new Date().toISOString(),
+              streaming: false,
+            }
+          };
+        }
+      }
+
+      // Start fetching from the specified path or root
+      const syncedFiles = await fetchDirectoryContents(path);
+      
+      if (Object.keys(syncedFiles).length === 0) {
+        return `No files found in ${owner}/${repo}/${branch}${path ? `/${path}` : ''}.`;
+      }
+      
+      // Update agent state with the synced files
+      // This completely replaces the existing files with the ones from GitHub
+      await agent.setState({ files: syncedFiles });
+      
+      return `Successfully synced ${Object.keys(syncedFiles).length} files from GitHub repository ${owner}/${repo} on branch ${branch}.`;
+    } catch (error) {
+      console.error("Error syncing from GitHub:", error);
+      return `Error syncing from GitHub: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+});
+
+/**
  * Export all available tools
  * These will be provided to the AI model to describe available capabilities
  */
@@ -738,6 +924,7 @@ export const tools = {
   streamFileChunk,
   deleteFile,
   publishToGitHub,
+  syncFromGitHub,
 };
 
 /**
