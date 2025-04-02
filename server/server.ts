@@ -1,7 +1,5 @@
 import { routeAgentRequest, type Schedule } from "agents";
-
 import { unstable_getSchedulePrompt } from "agents/schedule";
-
 import { AIChatAgent } from "agents/ai-chat-agent";
 import {
   createDataStreamResponse,
@@ -11,10 +9,11 @@ import {
 } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { processToolCalls } from "./utils";
-import { tools, executions } from "./tools";
+import { tools, executions } from "./tools/index";
 import { AsyncLocalStorage } from "node:async_hooks";
-import CloudflareSystemPrompt from "./cloudflare-system-context.txt";
-import type { ExecutionContext, ExportedHandler, Request as CfRequest, Response as CfResponse, IncomingRequestCfProperties } from "@cloudflare/workers-types"; // Added import
+import { generateSystemPrompt } from "./constants/system-prompt";
+import { handleApiRequest } from "./router";
+import type { ExecutionContext, ExportedHandler, Request as CfRequest, Response as CfResponse, IncomingRequestCfProperties } from "@cloudflare/workers-types";
 // import { env } from "cloudflare:workers";
 
 const model = openai("gpt-4o-2024-11-20");
@@ -27,22 +26,15 @@ const model = openai("gpt-4o-2024-11-20");
 // we use ALS to expose the agent context to the tools
 export const agentContext = new AsyncLocalStorage<Chat>();
 
-// Define the state structure for the agent
-type State = {
-  files: Record<string, {
-    content: string;
-    created: string;
-    modified: string;
-    streaming?: boolean;
-  }>;
-};
+// Import agent state type
+import type { AgentState } from "./types";
 
 /**
  * Chat Agent implementation that handles real-time AI chat interactions
  */
-export class Chat extends AIChatAgent<Env, State> {
+export class Chat extends AIChatAgent<Env, AgentState> {
   // Set the initial state for the agent
-  initialState: State = {
+  initialState: AgentState = {
     files: {},
   };
 
@@ -65,52 +57,16 @@ export class Chat extends AIChatAgent<Env, State> {
             executions,
           });
 
+          // Get the schedule prompt
+          const schedulePrompt = unstable_getSchedulePrompt({ date: new Date() });
+          
+          // Use a default agent name since we can't access the request URL here
+          const agentName = 'wai-1';
+          
           // Stream the AI response using GPT-4
           const result = streamText({
             model,
-            system: `
-${CloudflareSystemPrompt}
-
----
-
-${unstable_getSchedulePrompt({ date: new Date() })}
-
----
-
-If the user asks to schedule a task, use the schedule tool to schedule the task.
-If the user asks to remove or cancel a scheduled task, use the removeScheduledTask tool with the task ID.
-If the user asks to list or view scheduled tasks, use the listScheduledTasks tool to show all scheduled tasks.
-
-You can also help the user with file management. You can create, edit, and delete files in the file system.
-ALWAYS add code as files to the file system unless asked otherwise. You can use the getFileSystem tool to view the current file system structure.
-DON'T display code in the chat unless asked by the user.
-
-The file system is organized as a flat structure where each file is identified by its path:
-- Use paths like "src/index.ts", "public/styles.css", or "wrangler.jsonc" as unique identifiers
-- Each file has content, creation timestamp, and last modified timestamp
-- Use the createOrUpdateFile tool to create new files or update existing ones
-  - Set the stream parameter to true to enable real-time streaming of file content
-  - For large files, streaming provides a better user experience as content appears incrementally
-- Use the streamFileChunk tool to append content to a streaming file
-- Use the deleteFile tool to remove files from the system
-- Use the getFileSystem tool to view the current file structure
-
-When working with files:
-- Always use forward slashes (/) in file paths, even on Windows
-- Include the file extension in the path
-- Organize files in logical directories (e.g., src/, public/, config/)
-
-Repo info:
-ALWAYS use the parameters below for the github tool.
-org: WebsyteAI
-repo: wai-1
-commit message: {generate one}
-
-If a user asks for many features at once, you do not have to implement them all as long as the ones you implement are FULLY FUNCTIONAL and you clearly communicate to the user that you didn't implement some specific features.
-
-DO NOT OVERENGINEER THE CODE. You take great pride in keeping things simple and elegant. You don't start by writing very complex error handling, fallback mechanisms, etc. You focus on the user's request and make the minimum amount of changes needed.
-DON'T DO MORE THAN WHAT THE USER ASKS FOR.
-`,
+            system: generateSystemPrompt(new Date(), schedulePrompt, agentName),
             messages: processedMessages,
             tools,
             onFinish,
@@ -169,70 +125,10 @@ export default {
       return new Response("OPENAI_API_KEY is not set", { status: 500 });
     }
 
-    // Handle API requests
-    const url = new URL(request.url);
-    
-    // Handle tool execution API endpoint
-    if (url.pathname === '/api/agent/tool' && request.method === 'POST') {
-      try {
-        const data = await request.json();
-        const { tool: toolName, params } = data;
-        
-        if (!toolName) {
-          return new Response(
-            JSON.stringify({ success: false, message: 'Tool name is required' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        // Check if the tool exists
-        if (!tools[toolName as keyof typeof tools]) {
-          return new Response(
-            JSON.stringify({ success: false, message: `Tool '${toolName}' not found` }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        // Get the agent instance
-        const url = new URL(request.url);
-        const agentId = url.searchParams.get('agentId') || 'default';
-        const agentNamespace = env.Chat;
-        const agentIdObj = agentNamespace.idFromName(agentId);
-        const agent = agentNamespace.get(agentIdObj);
-        
-        // Execute the tool within the agent context
-        return await agentContext.run(agent, async () => {
-          try {
-            // Execute the tool
-            const tool = tools[toolName as keyof typeof tools];
-            // @ts-ignore
-            const result = await tool.execute(params);
-            
-            return new Response(
-              JSON.stringify({ success: true, content: result }),
-              { headers: { 'Content-Type': 'application/json' } }
-            );
-          } catch (error) {
-            console.error(`Error executing tool '${toolName}':`, error);
-            return new Response(
-              JSON.stringify({ 
-                success: false, 
-                message: error instanceof Error ? error.message : String(error) 
-              }),
-              { status: 500, headers: { 'Content-Type': 'application/json' } }
-            );
-          }
-        });
-      } catch (error) {
-        console.error('Error in tool execution endpoint:', error);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            message: error instanceof Error ? error.message : 'Unknown error' 
-          }),
-          { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+    // Handle API requests using the router
+    const apiResponse = await handleApiRequest(request, env, ctx);
+    if (apiResponse) {
+      return apiResponse;
     }
     
 
