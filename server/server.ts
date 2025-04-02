@@ -12,8 +12,8 @@ import { processToolCalls } from "./utils";
 import { tools, executions } from "./tools/index";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { generateSystemPrompt } from "./constants/system-prompt";
-import { handleApiRequest } from "./router";
-import type { ExecutionContext, ExportedHandler, Request as CfRequest, Response as CfResponse, IncomingRequestCfProperties } from "@cloudflare/workers-types";
+import type { ExecutionContext } from "@cloudflare/workers-types";
+import type { ToolExecutionResponse } from "./types";
 // import { env } from "cloudflare:workers";
 
 const model = openai("gpt-4o-2024-11-20");
@@ -112,12 +112,15 @@ export class Chat extends AIChatAgent<Env, AgentState> {
   }
 }
 
+// Import the router
+import { router } from './router';
+
 /**
  * Worker entry point that routes incoming requests to the appropriate handler
  */
+// Define the worker handler
 export default {
-  // @ts-ignore
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (!process.env.OPENAI_API_KEY) {
       console.error(
         "OPENAI_API_KEY is not set, don't forget to set it locally in .dev.vars, and use `wrangler secret bulk .dev.vars` to upload it to production"
@@ -125,17 +128,20 @@ export default {
       return new Response("OPENAI_API_KEY is not set", { status: 500 });
     }
 
-    // Handle API requests using the router
-    const apiResponse = await handleApiRequest(request, env, ctx);
-    if (apiResponse) {
-      return apiResponse;
+    // Try to handle the request with Hono
+    const url = new URL(request.url);
+    
+    // If the request is for an API endpoint, use the Hono router
+    if (url.pathname.startsWith('/api/')) {
+      return router.fetch(request as any, env, ctx);
     }
     
-
-    return (
-      // Route the request to our agent or return 404 if not found
-      (await routeAgentRequest(request, env)) ||
-      new Response("Not found", { status: 404 })
-    );
+    // Otherwise, try to route to an agent
+    const agentResponse = await routeAgentRequest(request as any, env);
+    if (agentResponse) {
+      return agentResponse;
+    }
+    
+    return new Response("Not found", { status: 404 });
   },
-} satisfies ExportedHandler<Env>;
+};

@@ -17,7 +17,7 @@ server/
 │   ├── schedule-tools.ts # Task scheduling operations
 │   └── index.ts         # Central export point for all tools
 ├── cloudflare-system-context.txt # Cloudflare system context for AI
-├── router.ts            # API routing logic
+├── router.ts            # API routing logic using Hono
 ├── server.ts            # Main server entry point and agent implementation
 ├── types.ts             # Shared type definitions
 └── utils.ts             # Utility functions
@@ -47,9 +47,10 @@ All tools are exported from `tools/index.ts` for easy access.
 
 ### Router
 
-The `router.ts` module handles API routing and request processing. It currently supports:
+The `router.ts` module handles API routing and request processing using Hono.js. It currently supports:
 
 - Tool execution endpoint (`/api/agent/tool`)
+- Health check endpoint (`/api/health`)
 
 ### Types
 
@@ -70,9 +71,28 @@ To add a new tool:
 
 To add a new API endpoint:
 
-1. Add a new condition in the `handleApiRequest` function in `router.ts`
-2. Implement a handler function for the endpoint
-3. Return the appropriate response
+1. Add a new route to the Hono router in `router.ts` using the appropriate HTTP method (get, post, put, delete, etc.)
+2. Implement the handler function for the endpoint
+3. Return a response using Hono's context methods (c.json(), c.text(), etc.)
+
+Example:
+```typescript
+// Adding a new endpoint in router.ts
+router.get('/api/files', async (c) => {
+  // Get the agent instance
+  const agentId = c.req.query('agentId') || 'default';
+  const agentNamespace = c.env.Chat;
+  const agent = agentNamespace.get(agentNamespace.idFromName(agentId));
+  
+  // Execute within agent context
+  const files = await agentContext.run(agent, async () => {
+    // Implementation here
+    return { files: [] };
+  });
+  
+  return c.json(files);
+});
+```
 
 ## Environment Variables
 

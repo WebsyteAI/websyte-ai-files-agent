@@ -1,49 +1,26 @@
 /**
- * Router module for handling API requests
- * Separates routing logic from the main server file
+ * Router module for handling API requests using Hono
+ * Provides a structured way to define routes and middleware
  */
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { tools } from "./tools";
 import { agentContext } from "./server";
-import type { ExecutionContext } from "@cloudflare/workers-types";
 import type { ToolExecutionResponse } from "./types";
 
-/**
- * Handles API requests to the agent
- * @param request The incoming request
- * @param env Environment variables and bindings
- * @param ctx Execution context
- * @returns Response or null if the request wasn't handled
- */
-export async function handleApiRequest(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response | null> {
-  const url = new URL(request.url);
-  
-  // Handle tool execution API endpoint
-  if (url.pathname === '/api/agent/tool' && request.method === 'POST') {
-    return handleToolExecution(request, env);
-  }
-  
-  // Add more API endpoints here as needed
-  
-  // Return null if no endpoint matched
-  return null;
-}
+// Create a Hono router for API endpoints
+const router = new Hono<{ Bindings: Env }>();
+
+// Add CORS middleware
+router.use('*', cors());
 
 /**
- * Handles tool execution requests
- * @param request The incoming request
- * @param env Environment variables and bindings
- * @returns Response with the tool execution result
+ * Tool execution endpoint
+ * Executes a specified tool with the provided parameters
  */
-async function handleToolExecution(
-  request: Request,
-  env: Env
-): Promise<Response> {
+router.post('/api/agent/tool', async (c) => {
   try {
-    const data = await request.json();
+    const data = await c.req.json();
     const { tool: toolName, params } = data;
     
     if (!toolName) {
@@ -52,10 +29,7 @@ async function handleToolExecution(
         message: 'Tool name is required'
       };
       
-      return new Response(
-        JSON.stringify(errorResponse),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return c.json(errorResponse, 400);
     }
     
     // Check if the tool exists
@@ -65,21 +39,18 @@ async function handleToolExecution(
         message: `Tool '${toolName}' not found`
       };
       
-      return new Response(
-        JSON.stringify(errorResponse),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return c.json(errorResponse, 400);
     }
     
     // Get the agent instance
-    const url = new URL(request.url);
+    const url = new URL(c.req.url);
     const agentId = url.searchParams.get('agentId') || 'default';
-    const agentNamespace = env.Chat;
+    const agentNamespace = c.env.Chat;
     const agentIdObj = agentNamespace.idFromName(agentId);
     const agent = agentNamespace.get(agentIdObj);
     
     // Execute the tool within the agent context
-    return await agentContext.run(agent, async () => {
+    const response = await agentContext.run(agent, async () => {
       try {
         // Execute the tool
         const tool = tools[toolName as keyof typeof tools];
@@ -91,10 +62,7 @@ async function handleToolExecution(
           content: result
         };
         
-        return new Response(
-          JSON.stringify(response),
-          { headers: { 'Content-Type': 'application/json' } }
-        );
+        return response;
       } catch (error) {
         console.error(`Error executing tool '${toolName}':`, error);
         const errorResponse: ToolExecutionResponse = {
@@ -102,12 +70,11 @@ async function handleToolExecution(
           message: error instanceof Error ? error.message : String(error)
         };
         
-        return new Response(
-          JSON.stringify(errorResponse),
-          { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
+        return errorResponse;
       }
     });
+    
+    return c.json(response, response.success ? 200 : 500);
   } catch (error) {
     console.error('Error in tool execution endpoint:', error);
     const errorResponse: ToolExecutionResponse = {
@@ -115,9 +82,17 @@ async function handleToolExecution(
       message: error instanceof Error ? error.message : 'Unknown error'
     };
     
-    return new Response(
-      JSON.stringify(errorResponse),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return c.json(errorResponse, 500);
   }
-}
+});
+
+// Add a health check endpoint
+router.get('/api/health', (c) => {
+  return c.json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Export the router for use in the main server file
+export { router };
