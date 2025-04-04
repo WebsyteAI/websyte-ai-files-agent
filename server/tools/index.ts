@@ -6,12 +6,14 @@ import { aiTools, aiExecutions } from "./ai-tools";
 import { filesystemTools } from "./filesystem-tools";
 import { githubTools } from "./github-tools";
 import { scheduleTools } from "./schedule-tools";
+import { testEndpoint } from "./network-tools"; // Import network tools
 
 // Combine all tools into a single object
 export const tools = {
   ...aiTools,
   ...filesystemTools,
   ...githubTools,
+  testEndpoint, // Add network tool correctly
   ...scheduleTools,
 };
 
@@ -25,3 +27,4 @@ export { aiTools, aiExecutions } from "./ai-tools";
 export { filesystemTools } from "./filesystem-tools";
 export { githubTools } from "./github-tools";
 export { scheduleTools } from "./schedule-tools";
+export { testEndpoint } from "./network-tools"; // Export network tool correctly

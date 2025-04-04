@@ -1,6 +1,6 @@
 {
   "name": "websyte-ai-files-agent",
-  "main": "server/server.ts",
+  "main": "server/index.ts",
   "compatibility_date": "2025-02-04",
   "compatibility_flags": [
     "nodejs_compat",

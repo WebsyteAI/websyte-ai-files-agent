@@ -4,7 +4,7 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
-import { agentContext } from "../server";
+import { agentContext } from "../agent";
 import {
   unstable_getSchedulePrompt,
   unstable_scheduleSchema,

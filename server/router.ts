@@ -5,7 +5,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { tools } from "./tools";
-import { agentContext } from "./server";
+import { agentContext } from "./agent";
 import type { ToolExecutionResponse } from "./types";
 
 // Create a Hono router for API endpoints

@@ -5,5 +5,5 @@ interface Env {
 	CLOUDFLARE_API_KEY: string;
 	DISPATCH_NAMESPACE_NAME: string;
 	DISPATCH_NAMESPACE_ACCOUNT_ID: string;
-	Chat: DurableObjectNamespace<import("./server/server").Chat>;
+	Chat: DurableObjectNamespace<import("./server").Chat>;
 }

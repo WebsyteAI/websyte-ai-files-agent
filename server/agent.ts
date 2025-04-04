@@ -1,4 +1,5 @@
-import { routeAgentRequest, type Schedule } from "agents";
+// websyte-ai-files-agent/server/agent.ts
+import { type Schedule } from "agents";
 import { unstable_getSchedulePrompt } from "agents/schedule";
 import { AIChatAgent } from "agents/ai-chat-agent";
 import {
@@ -12,9 +13,7 @@ import { processToolCalls } from "./utils";
 import { tools, executions } from "./tools/index";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { generateSystemPrompt } from "./constants/system-prompt";
-import type { ExecutionContext } from "@cloudflare/workers-types";
-import type { ToolExecutionResponse } from "./types";
-// import { env } from "cloudflare:workers";
+import type { AgentState } from "./types";
 
 const model = openai("gpt-4o-2024-11-20");
 // Cloudflare AI Gateway
@@ -25,9 +24,6 @@ const model = openai("gpt-4o-2024-11-20");
 
 // we use ALS to expose the agent context to the tools
 export const agentContext = new AsyncLocalStorage<Chat>();
-
-// Import agent state type
-import type { AgentState } from "./types";
 
 /**
  * Chat Agent implementation that handles real-time AI chat interactions
@@ -59,10 +55,10 @@ export class Chat extends AIChatAgent<Env, AgentState> {
 
           // Get the schedule prompt
           const schedulePrompt = unstable_getSchedulePrompt({ date: new Date() });
-          
+
           // Use a default agent name since we can't access the request URL here
           const agentName = 'wai-1';
-          
+
           // Stream the AI response using GPT-4
           const result = streamText({
             model,
@@ -111,37 +107,3 @@ export class Chat extends AIChatAgent<Env, AgentState> {
     }
   }
 }
-
-// Import the router
-import { router } from './router';
-
-/**
- * Worker entry point that routes incoming requests to the appropriate handler
- */
-// Define the worker handler
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error(
-        "OPENAI_API_KEY is not set, don't forget to set it locally in .dev.vars, and use `wrangler secret bulk .dev.vars` to upload it to production"
-      );
-      return new Response("OPENAI_API_KEY is not set", { status: 500 });
-    }
-
-    // Try to handle the request with Hono
-    const url = new URL(request.url);
-    
-    // If the request is for an API endpoint, use the Hono router
-    if (url.pathname.startsWith('/api/')) {
-      return router.fetch(request as any, env, ctx);
-    }
-    
-    // Otherwise, try to route to an agent
-    const agentResponse = await routeAgentRequest(request as any, env);
-    if (agentResponse) {
-      return agentResponse;
-    }
-    
-    return new Response("Not found", { status: 404 });
-  },
-};
