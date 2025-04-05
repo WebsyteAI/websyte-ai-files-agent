@@ -15,12 +15,45 @@ export interface FileRecord {
 }
 
 /**
+ * GitHub build status structure
+ * Represents the build status of a GitHub repository
+ */
+export interface GitHubBuildStatus {
+  state: string;
+  statuses: Array<{
+    state: string;
+    description: string;
+    context: string;
+    target_url: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  check_runs?: Array<{
+    name: string;
+    status: string;
+    conclusion: string | null;
+    started_at: string;
+    completed_at: string | null;
+    html_url: string;
+    app: {
+      name: string;
+    };
+  }>;
+}
+
+/**
  * Agent state structure
  * Defines the shape of the agent's persistent state
  */
 export interface AgentState {
   files: Record<string, FileRecord>;
   agentName?: string;
+  buildStatus?: {
+    repository: string;
+    ref: string;
+    status: GitHubBuildStatus;
+    timestamp: string;
+  };
 }
 
 /**
@@ -59,6 +92,6 @@ export type GitHubContent = GitHubFileContent | GitHubDirectoryItem[];
  */
 export interface ToolExecutionResponse {
   success: boolean;
-  content?: string;
+  content?: any; // Changed from string to any to support complex return types
   message?: string;
 }
