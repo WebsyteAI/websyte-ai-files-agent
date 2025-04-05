@@ -1,30 +1,16 @@
 {
-  "name": "websyte-ai-files-agent",
-  "main": "server/index.ts",
-  "compatibility_date": "2025-02-04",
-  "compatibility_flags": [
-    "nodejs_compat",
-    "nodejs_compat_populate_process_env"
-  ],
-  "assets": {
-    "directory": "public"
-  },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "Chat",
-        "class_name": "Chat"
-      }
-    ]
-  },
-  "migrations": [
+  "name": "wai-2",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-03-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "kv_namespaces": [
     {
-      "tag": "v1",
-      "new_sqlite_classes": ["Chat"]
+      "binding": "QUOTES_KV",
+      "id": "<YOUR_KV_NAMESPACE_ID>",
+      "preview_id": "<YOUR_KV_NAMESPACE_PREVIEW_ID>"
     }
   ],
-  "vars": {
-    "DISPATCH_NAMESPACE_NAME": "testing",
-    "DISPATCH_NAMESPACE_ACCOUNT_ID": "85007e57ff327d1bd0f10025e9ea3aa3"
+  "observability": {
+    "enabled": true
   }
 }
