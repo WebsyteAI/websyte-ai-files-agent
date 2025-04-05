@@ -51,8 +51,16 @@ When working with files:
 IMPORTANT: ALWAYS include the following files in your implementation:
 1. package.json - Must include:
    - "name": "${agentName}"
-   - Required dependencies: "hono" and "wrangler" (at minimum)
-   - Appropriate scripts (build, dev, deploy)
+   - "version": "1.0.0"
+   - "main": "src/index.ts"
+   - "dependencies": {
+       "hono": "^4",
+       "wrangler": "^4"
+     }
+   - "scripts": {
+       "start": "wrangler dev",
+       "deploy": "wrangler deploy --dispatch-namespace testing"
+     }
 
 2. wrangler.jsonc - Must include:
    - "name": "${agentName}"
