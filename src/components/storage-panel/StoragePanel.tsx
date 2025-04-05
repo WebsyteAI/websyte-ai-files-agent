@@ -3,7 +3,7 @@ import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
 import { Input } from "@/components/input/Input";
 import { Label } from "@/components/label/Label";
-import { FolderOpen, ArrowClockwise, CaretDown, CaretRight, ArrowsHorizontal, GithubLogo } from "@phosphor-icons/react";
+import { FolderOpen, ArrowClockwise, CaretDown, CaretRight, ArrowsHorizontal, GithubLogo, Copy, Check } from "@phosphor-icons/react";
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
@@ -90,6 +90,7 @@ interface StoragePanelProps {
 export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
+  const [copiedFile, setCopiedFile] = useState<string | null>(null);
   
   // Initialize all files as expanded by default
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(() => {
@@ -139,6 +140,21 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
   // Count the number of files
   const fileCount = agentState?.files ? Object.keys(agentState.files).length : 0;
   
+  // Copy file content to clipboard
+  const copyFileContent = async (path: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedFile(path);
+      
+      // Reset copied status after 2 seconds
+      setTimeout(() => {
+        setCopiedFile(null);
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to copy file content:", error);
+    }
+  };
+
   // Handle GitHub publish
   const handleGitHubPublish = async () => {
     if (!agentState?.files || Object.keys(agentState.files).length === 0) {
@@ -253,12 +269,28 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
                         {expandedFiles[path] ? <CaretDown size={16} className="mr-2" /> : <CaretRight size={16} className="mr-2" />}
                         <span>{path}</span>
                       </div>
-                      {fileData.streaming && (
-                        <div className="flex items-center text-[#F48120]">
-                          <ArrowClockwise size={16} className="animate-spin mr-1" />
-                          <span className="text-sm">Streaming</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyFileContent(path, fileData.content);
+                          }}
+                          title="Copy file content"
+                        >
+                          {copiedFile === path ? (
+                            <Check size={16} className="text-green-500" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
+                        </button>
+                        {fileData.streaming && (
+                          <div className="flex items-center text-[#F48120]">
+                            <ArrowClockwise size={16} className="animate-spin mr-1" />
+                            <span className="text-sm">Streaming</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {expandedFiles[path] && (
                       <>

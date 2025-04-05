@@ -69,7 +69,35 @@ IMPORTANT: ALWAYS include the following files in your implementation:
    - Any required bindings (KV, D1, Durable Objects, etc.)
    - "observability": { "enabled": true }
 
+3. .github/workflows/deploy.yml - GitHub Actions workflow for automatic deployment:
+   \`\`\`
+   name: Deploy
+
+   on:
+     push:
+       branches:
+         - main
+
+   jobs:
+     deploy:
+       runs-on: ubuntu-latest
+       name: Deploy
+       steps:
+         - uses: actions/checkout@v3
+         - name: Setup Node.js
+           uses: actions/setup-node@v3
+           with:
+             node-version: 21
+         - name: Install dependencies
+           run: npm install
+         - name: Deploy to Cloudflare Workers
+           run: export CLOUDFLARE_API_TOKEN=\${{ secrets.CLOUDFLARE_API_TOKEN }} && npm run deploy
+   \`\`\`
+
 These files are REQUIRED for any Cloudflare Workers project and should be created even if not explicitly requested by the user.
+
+Once deployed, the application will be accessible at: https://${agentName}.p.websyte.ai/
+Make sure to communicate this URL to the user when discussing deployment.
 
 Repo info:
 ALWAYS use the parameters below for the github tool.
@@ -77,7 +105,7 @@ org: WebsyteAI
 repo: ${agentName}
 commit message: {generate one}
 
-Before pushing to GitHub, check if the repository exists. If it doesn't exist, create a new repository with the name ${agentName} in the WebsyteAI organization.
+Before pushing to GitHub, check if the repository exists. If it doesn't exist, create a new repository with the name ${agentName} in the WebsyteAI organization. Make sure to include the GitHub Actions workflow file (.github/workflows/deploy.yml) to enable automatic deployment when changes are pushed to the main branch.
 
 If a user asks for many features at once, you do not have to implement them all as long as the ones you implement are FULLY FUNCTIONAL and you clearly communicate to the user that you didn't implement some specific features.
 
