@@ -1,5 +1,5 @@
 // websyte-ai-files-agent/server/agent.ts
-import { type Schedule } from "agents";
+import { type Schedule, type Connection, type ConnectionContext } from "agents";
 import { unstable_getSchedulePrompt } from "agents/schedule";
 import { AIChatAgent } from "agents/ai-chat-agent";
 import {
@@ -32,7 +32,65 @@ export class Chat extends AIChatAgent<Env, AgentState> {
   // Set the initial state for the agent
   initialState: AgentState = {
     files: {},
+    agentName: "", // Will be set from request
   };
+
+  /**
+   * Handle HTTP requests to the agent
+   * Extracts and validates the agentName from the request headers
+   */
+  async onRequest(request: Request): Promise<Response> {
+    // Extract agentName from the x-partykit-room header
+    const partyKitRoom = request.headers.get('x-partykit-room');
+    
+    // Use the header value as the agentName
+    const agentName = partyKitRoom;
+
+    // Validate agentName
+    if (!agentName) {
+      return new Response('Agent name is required (x-partykit-room header missing)', { status: 400 });
+    }
+
+    // Update agent state with the agentName if it's not already set
+    if (!this.state.agentName) {
+      await this.setState({
+        ...this.state,
+        agentName
+      });
+    }
+
+    // Continue with normal request processing
+    return await super.onRequest(request);
+  }
+
+  /**
+   * Handle WebSocket connections to the agent
+   * Extracts and validates the agentName from the connection request headers
+   */
+  async onConnect(connection: Connection, ctx: ConnectionContext): Promise<void> {
+    // Extract agentName from the x-partykit-room header
+    const partyKitRoom = ctx.request.headers.get('x-partykit-room');
+    
+    // Use the header value as the agentName
+    const agentName = partyKitRoom;
+
+    // Validate agentName
+    if (!agentName) {
+      connection.close(1008, 'Agent name is required (x-partykit-room header missing)');
+      return;
+    }
+
+    // Update agent state with the agentName if it's not already set
+    if (!this.state.agentName) {
+      await this.setState({
+        ...this.state,
+        agentName
+      });
+    }
+
+    // Continue with normal connection handling
+    await super.onConnect(connection, ctx);
+  }
 
   /**
    * Handles incoming chat messages and manages the response stream
@@ -55,9 +113,9 @@ export class Chat extends AIChatAgent<Env, AgentState> {
 
           // Get the schedule prompt
           const schedulePrompt = unstable_getSchedulePrompt({ date: new Date() });
-
-          // Use a default agent name since we can't access the request URL here
-          const agentName = 'wai-1';
+          
+          // Use the agentName from state or fall back to a default
+          const agentName = this.state.agentName;
 
           // Stream the AI response using GPT-4
           const result = streamText({

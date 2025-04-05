@@ -20,6 +20,7 @@ export interface FileRecord {
  */
 export interface AgentState {
   files: Record<string, FileRecord>;
+  agentName?: string;
 }
 
 /**

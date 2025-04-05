@@ -48,10 +48,25 @@ When working with files:
 - Organize files in logical directories (e.g., src/, public/, config/)
 - For package.json and wrangler.jsonc files, ALWAYS set the "name" property to be "${agentName}"
 
+IMPORTANT: ALWAYS include the following files in your implementation:
+1. package.json - Must include:
+   - "name": "${agentName}"
+   - Required dependencies: "hono" and "wrangler" (at minimum)
+   - Appropriate scripts (build, dev, deploy)
+
+2. wrangler.jsonc - Must include:
+   - "name": "${agentName}"
+   - "compatibility_date": "2025-03-07"
+   - "compatibility_flags": ["nodejs_compat"]
+   - Any required bindings (KV, D1, Durable Objects, etc.)
+   - "observability": { "enabled": true }
+
+These files are REQUIRED for any Cloudflare Workers project and should be created even if not explicitly requested by the user.
+
 Repo info:
 ALWAYS use the parameters below for the github tool.
 org: WebsyteAI
-repo: wai-1
+repo: ${agentName}
 commit message: {generate one}
 
 If a user asks for many features at once, you do not have to implement them all as long as the ones you implement are FULLY FUNCTIONAL and you clearly communicate to the user that you didn't implement some specific features.
