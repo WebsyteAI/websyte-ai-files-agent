@@ -146,30 +146,14 @@ export function CommitTimeline({
   };
 
   return (
-    <Card className="h-full overflow-hidden flex flex-col">
-      <div className="flex items-center justify-center p-2 border-b border-neutral-300 dark:border-neutral-800 flex-shrink-0">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <GitCommit size={14} />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Commit History</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <div className="flex-1"></div>
-        <Button
-          variant="ghost"
-          size="sm"
+    <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
+      <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-center sticky top-0 z-10">
+        <div 
+          className="flex items-center justify-center h-8 w-8 cursor-pointer"
           onClick={onRefresh}
-          disabled={loading}
-          className="rounded-full h-6 w-6 flex items-center justify-center"
         >
-          <ArrowClockwise size={12} className={loading ? "animate-spin" : ""} />
-        </Button>
+          <GitCommit size={24} className={`text-[#F48120] ${loading ? "animate-spin" : ""}`} />
+        </div>
       </div>
 
       <div className="flex-1 h-full flex flex-col">

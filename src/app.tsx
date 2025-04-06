@@ -233,7 +233,7 @@ export default function Chat() {
 
   return (
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
-      <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[100dvh] mx-auto md:gap-4 relative">
+      <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[100dvh] mx-auto relative">
         {/* Chat Panel */}
         <div className="h-full md:w-1/3 w-full flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
           <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10">
