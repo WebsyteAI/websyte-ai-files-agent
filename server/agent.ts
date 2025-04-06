@@ -33,6 +33,8 @@ export class Chat extends AIChatAgent<Env, AgentState> {
   initialState: AgentState = {
     files: {},
     agentName: "", // Will be set from request
+    dispatchNamespace: process.env.DISPATCH_NAMESPACE_NAME || "", // Set from environment variable
+    dispatchNamespaceAccountId: process.env.DISPATCH_NAMESPACE_ACCOUNT_ID || "", // Set from environment variable
   };
 
   /**

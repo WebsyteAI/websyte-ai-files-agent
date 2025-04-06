@@ -2,7 +2,7 @@
 
 interface Env {
 	OPENAI_API_KEY: string;
-	CLOUDFLARE_API_KEY: string;
+	CLOUDFLARE_API_TOKEN: string;
 	DISPATCH_NAMESPACE_NAME: string;
 	DISPATCH_NAMESPACE_ACCOUNT_ID: string;
 	Chat: DurableObjectNamespace<import("./server").Chat>;

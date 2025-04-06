@@ -108,6 +108,9 @@ interface AgentState {
     status: GitHubBuildStatus;
     timestamp: string;
   };
+  // Cloudflare Worker configuration
+  dispatchNamespace?: string;
+  workerScriptName?: string;
 }
 
 interface StoragePanelProps {
@@ -377,6 +380,8 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
           {statusError}
         </div>
       )}
+      
+      {/* Cloudflare Worker Configuration section is hidden to prevent sensitive values from being displayed */}
       
       {agentState?.buildStatus && (
         <div className="p-3 border-b border-neutral-300 dark:border-neutral-800">

@@ -81,6 +81,9 @@ export interface AgentState {
     commits: GitHubCommit[];
     timestamp: string;
   };
+  // Cloudflare Worker configuration
+  dispatchNamespace?: string;
+  dispatchNamespaceAccountId?: string;
 }
 
 /**

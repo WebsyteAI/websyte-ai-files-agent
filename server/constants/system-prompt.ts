@@ -99,6 +99,8 @@ These files are REQUIRED for any Cloudflare Workers project and should be create
 Once deployed, the application will be accessible at: https://${agentName}.p.websyte.ai/
 Make sure to communicate this URL to the user when discussing deployment.
 
+For Cloudflare API operations, the CLOUDFLARE_API_TOKEN environment variable is used. This key is required for managing Cloudflare Worker secrets and other Cloudflare API operations. The GitHub Actions workflow will use this key from the repository secrets.
+
 Repo info:
 ALWAYS use the parameters below for the github tool.
 org: WebsyteAI
