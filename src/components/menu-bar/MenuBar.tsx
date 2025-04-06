@@ -1,6 +1,11 @@
-import { Tooltip } from "@/components/tooltip/Tooltip";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/tooltip";
 import { useMenuNavigation } from "@/hooks/useMenuNavigation";
-import { cn } from "@/utils/tw";
+import { cn } from "@/lib/utils";
 import { IconContext } from "@phosphor-icons/react";
 import { useRef } from "react";
 
@@ -19,24 +24,28 @@ const MenuOption = ({
   onClick,
   tooltip,
 }: MenuOptionProps) => (
-  <Tooltip
-    content={tooltip}
-    id={id}
-    className="first-of-type:*:first:rounded-l-lg last-of-type:*:first:rounded-r-lg"
-  >
-    <button
-      className={cn(
-        "text-ob-base-100 hover:text-ob-base-300 border-ob-border focus:inset-ring-focus focus-visible:border-ob-focus relative -ml-px flex h-full w-11 cursor-pointer items-center justify-center border transition-colors focus:z-10 focus:outline-none focus-visible:z-10 focus-visible:inset-ring-[0.5]",
-        {
-          "text-ob-base-300 bg-ob-base-200 focus-visible:border-ob-focus":
-            isActive === id,
-        }
-      )}
-      onClick={onClick}
-    >
-      <IconContext.Provider value={{ size: 18 }}>{icon}</IconContext.Provider>
-    </button>
-  </Tooltip>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          className={cn(
+            "relative -ml-px flex h-full w-11 cursor-pointer items-center justify-center border border-neutral-300 dark:border-neutral-700 transition-colors focus:z-10 focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-offset-2",
+            {
+              "bg-neutral-200 dark:bg-neutral-800": isActive === id,
+              "rounded-l-lg": "first-of-type",
+              "rounded-r-lg": "last-of-type"
+            }
+          )}
+          onClick={onClick}
+        >
+          <IconContext.Provider value={{ size: 18 }}>{icon}</IconContext.Provider>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{tooltip}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
 );
 
 type MenuBarProps = {

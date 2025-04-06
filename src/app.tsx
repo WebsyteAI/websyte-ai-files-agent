@@ -12,8 +12,14 @@ import { Card } from "@/components/card/Card";
 import { Input } from "@/components/input/Input";
 import { Avatar } from "@/components/avatar/Avatar";
 import { Toggle } from "@/components/toggle/Toggle";
-import { Tooltip } from "@/components/tooltip/Tooltip";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/tooltip";
 import { StoragePanel } from "@/components/storage-panel/StoragePanel";
+import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
 
 // Icon imports
 import {
@@ -38,6 +44,8 @@ export default function Chat() {
   const [showStoragePanel, setShowStoragePanel] = useState(true);
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
   const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
+  const [commitHistory, setCommitHistory] = useState<any | undefined>(undefined);
+  const [commitHistoryLoading, setCommitHistoryLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -126,6 +134,102 @@ export default function Chat() {
       console.error("Error removing task:", error);
     }
   };
+
+  // Fetch commit history from GitHub
+  const fetchCommitHistory = async () => {
+    setCommitHistoryLoading(true);
+    
+    try {
+      if (!agentState?.agentName) {
+        throw new Error("Agent name is missing in agent state. Cannot fetch commit history.");
+      }
+      
+      // Extract repository info from agent state if available
+      const repoInfo = agentState?.commitHistory?.repository?.split('/') || [];
+      const owner = repoInfo[0] || 'WebsyteAI'; // Default organization if not in state
+      const repo = agentState.agentName; // ALWAYS use agent name as repo name
+      const branch = agentState?.commitHistory?.branch || 'main'; // Default branch if not in state
+      
+      console.log(`Fetching commit history for ${owner}/${repo}/${branch}`);
+      
+      const response = await fetch('/api/agent/tool', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tool: 'getCommitHistory',
+          params: {
+            owner,
+            repo,
+            branch,
+            updateAgentState: true, // Update agent state with commit history
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch commit history');
+      }
+      
+      const result = await response.json();
+      setCommitHistory(result.content);
+    } catch (error) {
+      console.error("Error fetching commit history:", error);
+    } finally {
+      setCommitHistoryLoading(false);
+    }
+  };
+
+  // Revert to a specific commit
+  const revertToCommit = async (sha: string) => {
+    try {
+      if (!agentState?.agentName) {
+        throw new Error("Agent name is missing in agent state. Cannot revert to commit.");
+      }
+      
+      // Extract repository info from agent state if available
+      const repoInfo = agentState?.commitHistory?.repository?.split('/') || [];
+      const owner = repoInfo[0] || 'WebsyteAI'; // Default organization if not in state
+      const repo = agentState.agentName; // ALWAYS use agent name as repo name
+      
+      console.log(`Reverting to commit ${sha} in ${owner}/${repo}`);
+      
+      const response = await fetch('/api/agent/tool', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tool: 'revertToCommit',
+          params: {
+            owner,
+            repo,
+            commitSha: sha,           // Commit SHA to revert to
+            updateAgentState: true, // Update agent state with new files
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to revert to commit');
+      }
+      
+      // Refresh commit history after successful revert
+      fetchCommitHistory();
+    } catch (error) {
+      console.error("Error reverting to commit:", error);
+    }
+  };
+
+  // Fetch commit history when component mounts
+  useEffect(() => {
+    if (!commitHistory && !commitHistoryLoading && agentState?.files && Object.keys(agentState.files).length > 0) {
+      fetchCommitHistory();
+    }
+  }, [agentState?.files, commitHistory, commitHistoryLoading]);
 
   return (
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
@@ -361,20 +465,27 @@ export default function Chat() {
                                       >
                                         Reject
                                       </Button>
-                                      <Tooltip content={"Accept action"}>
-                                        <Button
-                                          variant="primary"
-                                          size="sm"
-                                          onClick={() =>
-                                            addToolResult({
-                                              toolCallId,
-                                              result: APPROVAL.YES,
-                                            })
-                                          }
-                                        >
-                                          Approve
-                                        </Button>
-                                      </Tooltip>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="primary"
+                                              size="sm"
+                                              onClick={() =>
+                                                addToolResult({
+                                                  toolCallId,
+                                                  result: APPROVAL.YES,
+                                                })
+                                              }
+                                            >
+                                              Approve
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Accept action</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                     </div>
                                   </Card>
                                 );
@@ -440,16 +551,28 @@ export default function Chat() {
           </form>
         </div>
 
-        {/* Storage Panel */}
+        {/* Commit Timeline */}
         {showStoragePanel && (
-          <div className="h-[100dvh] w-[100dvw] md:h-full md:w-2/3 flex-grow md:mt-0 absolute md:relative top-0 left-0 z-20">
-            {/* Pass agentState and loading props */}
-            <StoragePanel 
-              agentState={agentState} 
-              loading={agentStateLoading} 
-              onToggle={() => setShowStoragePanel(false)}
-            />
-          </div>
+          <>
+            {/* Timeline in the middle */}
+            <div className="h-full w-[80px] flex-shrink-0 flex flex-col">
+              <CommitTimeline 
+                commitHistory={commitHistory} 
+                loading={commitHistoryLoading} 
+                onRefresh={fetchCommitHistory}
+                onRevertToCommit={revertToCommit}
+              />
+            </div>
+            
+            {/* Storage Panel on the right */}
+            <div className="h-full flex-1">
+              <StoragePanel 
+                agentState={agentState} 
+                loading={agentStateLoading} 
+                onToggle={() => setShowStoragePanel(false)}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

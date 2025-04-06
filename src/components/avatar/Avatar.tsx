@@ -1,5 +1,10 @@
 import { Slot } from "@/components/slot/Slot";
-import { Tooltip } from "@/components/tooltip/Tooltip";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/tooltip";
 import { cn } from "@/lib/utils";
 
 export type AvatarProps = {
@@ -65,9 +70,16 @@ const AvatarComponent = ({
 
 export const Avatar = ({ ...props }: AvatarProps) => {
   return props.tooltip ? (
-    <Tooltip content={props.tooltip} className={props.className} id={props.id}>
-      <AvatarComponent {...props} className={undefined} />
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AvatarComponent {...props} className={undefined} />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{props.tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   ) : (
     <AvatarComponent {...props} />
   );

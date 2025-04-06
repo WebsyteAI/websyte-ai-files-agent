@@ -1,6 +1,11 @@
 import { Loader } from "@/components/loader/Loader";
 import { Slot } from "@/components/slot/Slot";
-import { Tooltip } from "@/components/tooltip/Tooltip";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/tooltip";
 import { cn } from "@/lib/utils";
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -92,9 +97,16 @@ const ButtonComponent = ({
 
 export const Button = ({ ...props }: ButtonProps) => {
   return props.tooltip ? (
-    <Tooltip content={props.tooltip} className={props.className} id={props.id}>
-      <ButtonComponent {...props} className={undefined} />
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ButtonComponent {...props} className={undefined} />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{props.tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   ) : (
     <ButtonComponent {...props} />
   );

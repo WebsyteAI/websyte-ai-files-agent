@@ -898,6 +898,343 @@ export const getGitHubBuildStatus = tool({
   },
 });
 
+/**
+ * Tool to get commit history from GitHub
+ */
+export const getCommitHistory = tool({
+  description: "Get commit history for a GitHub repository branch",
+  parameters: z.object({
+    owner: z
+      .string()
+      .describe("GitHub username or organization name that owns the repository"),
+    repo: z
+      .string()
+      .describe("GitHub repository name"),
+    branch: z
+      .string()
+      .optional()
+      .default("main")
+      .describe("Branch to get history for (default: main)"),
+    perPage: z
+      .number()
+      .optional()
+      .default(10)
+      .describe("Number of commits to fetch per page (default: 10)"),
+    page: z
+      .number()
+      .optional()
+      .default(1)
+      .describe("Page number for pagination (default: 1)"),
+    includeBuildStatus: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Whether to include build status for each commit"),
+    updateAgentState: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Whether to update the agent state with the commit history"),
+    token: z
+      .string()
+      .optional()
+      .describe(
+        "GitHub personal access token (if not provided, will use environment variable)"
+      ),
+  }),
+  execute: async ({
+    owner,
+    repo,
+    branch = "main",
+    perPage = 10,
+    page = 1,
+    includeBuildStatus = true,
+    updateAgentState = true,
+    token,
+  }) => {
+    try {
+      // Use provided token or get from environment
+      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set."
+        };
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+      
+      console.log(`Getting commit history for ${owner}/${repo}/${branch}`);
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+      
+      // Get commits for the branch
+      const commitsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits?sha=${branch}&per_page=${perPage}&page=${page}`;
+      console.log(`Fetching commits from: ${commitsUrl}`);
+      
+      const commitsResponse = await fetch(commitsUrl, {
+        method: "GET",
+        headers,
+      });
+      
+      if (!commitsResponse.ok) {
+        const errorText = await commitsResponse.text();
+        console.error(`GitHub API error (${commitsResponse.status}): ${errorText}`);
+        return {
+          success: false,
+          message: `Failed to get commit history: ${commitsResponse.status}. Details: ${errorText}`
+        };
+      }
+      
+      const commits = await commitsResponse.json();
+      
+      // If includeBuildStatus is true, fetch build status for each commit
+      if (includeBuildStatus) {
+        console.log(`Fetching build status for ${commits.length} commits`);
+        
+        // Add build status to each commit
+        for (const commit of commits) {
+          try {
+            // Get combined status for the commit
+            const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${commit.sha}/status`;
+            console.log(`Fetching status for commit ${commit.sha.substring(0, 7)} from: ${statusUrl}`);
+            
+            const statusResponse = await fetch(statusUrl, {
+              method: "GET",
+              headers,
+            });
+            
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              commit.status = {
+                state: statusData.state,
+                total_count: statusData.total_count,
+                statuses: statusData.statuses,
+              };
+            } else {
+              console.warn(`Could not fetch status for commit ${commit.sha}: ${statusResponse.status}`);
+              commit.status = { state: 'pending' };
+            }
+            
+            // Add a small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (statusError) {
+            console.error(`Error fetching status for commit ${commit.sha}:`, statusError);
+            commit.status = { state: 'pending' };
+          }
+        }
+      }
+      
+      // Update agent state if requested
+      if (updateAgentState) {
+        try {
+          const agent = agentContext.getStore();
+          if (!agent) {
+            console.warn("Agent context not found, cannot update state");
+          } else {
+            const currentState = agent.state || {};
+            
+            // Create a new state object with the commit history
+            await agent.setState({
+              ...currentState,
+              commitHistory: {
+                repository: `${owner}/${repo}`,
+                branch,
+                commits,
+                timestamp: new Date().toISOString(),
+              },
+            });
+            
+            console.log("Updated agent state with commit history information");
+          }
+        } catch (stateError) {
+          console.error("Error updating agent state:", stateError);
+        }
+      }
+      
+      return {
+        success: true,
+        message: `Successfully retrieved ${commits.length} commits from ${owner}/${repo}/${branch}`,
+        commits,
+      };
+    } catch (error) {
+      console.error("Error getting GitHub commit history:", error);
+      return {
+        success: false,
+        message: `Error getting GitHub commit history: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  },
+});
+
+/**
+ * Tool to revert to a specific commit
+ */
+export const revertToCommit = tool({
+  description: "Sync files from a specific commit to the agent's state",
+  parameters: z.object({
+    owner: z
+      .string()
+      .describe("GitHub username or organization name that owns the repository"),
+    repo: z
+      .string()
+      .describe("GitHub repository name"),
+    commitSha: z
+      .string()
+      .describe("The SHA of the commit to revert to"),
+    token: z
+      .string()
+      .optional()
+      .describe(
+        "GitHub personal access token (if not provided, will use environment variable)"
+      ),
+  }),
+  execute: async ({
+    owner,
+    repo,
+    commitSha,
+    token,
+  }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      console.log(`Reverting to commit: ${commitSha} in ${owner}/${repo}`);
+
+      // Use provided token or get from environment
+      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set."
+        };
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+      
+      // First, get the commit to verify it exists
+      const commitUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${commitSha}`;
+      console.log(`Fetching commit details from: ${commitUrl}`);
+      
+      const commitResponse = await fetch(commitUrl, {
+        method: "GET",
+        headers,
+      });
+      
+      if (!commitResponse.ok) {
+        const errorText = await commitResponse.text();
+        console.error(`GitHub API error (${commitResponse.status}): ${errorText}`);
+        return {
+          success: false,
+          message: `Failed to get commit: ${commitResponse.status}. Details: ${errorText}`
+        };
+      }
+      
+      // Get the commit tree
+      const commit = await commitResponse.json();
+      const treeSha = commit.commit.tree.sha;
+      
+      // Get the tree with recursive=1 to get all files
+      const treeUrl = `${apiBaseUrl}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`;
+      console.log(`Fetching tree from: ${treeUrl}`);
+      
+      const treeResponse = await fetch(treeUrl, {
+        method: "GET",
+        headers,
+      });
+      
+      if (!treeResponse.ok) {
+        const errorText = await treeResponse.text();
+        console.error(`GitHub API error (${treeResponse.status}): ${errorText}`);
+        return {
+          success: false,
+          message: `Failed to get tree: ${treeResponse.status}. Details: ${errorText}`
+        };
+      }
+      
+      const tree = await treeResponse.json();
+      
+      // Process each file in the tree
+      const files: Record<string, FileRecord> = {};
+      
+      for (const item of tree.tree) {
+        // Only process blobs (files)
+        if (item.type === "blob") {
+          // Get the file content
+          const contentUrl = `${apiBaseUrl}/repos/${owner}/${repo}/git/blobs/${item.sha}`;
+          console.log(`Fetching content for: ${item.path}`);
+          
+          const contentResponse = await fetch(contentUrl, {
+            method: "GET",
+            headers,
+          });
+          
+          if (!contentResponse.ok) {
+            console.warn(`Failed to get content for ${item.path}: ${contentResponse.status}`);
+            continue;
+          }
+          
+          const content = await contentResponse.json();
+          
+          // GitHub returns base64 encoded content
+          const decodedContent = Buffer.from(content.content, 'base64').toString('utf-8');
+          
+          // Add file to our files object
+          files[item.path] = {
+            content: decodedContent,
+            created: new Date().toISOString(),
+            modified: new Date().toISOString(),
+            streaming: false,
+          };
+        }
+      }
+      
+      if (Object.keys(files).length === 0) {
+        return {
+          success: false,
+          message: `No files found in commit ${commitSha}.`
+        };
+      }
+      
+      // Update agent state with the files from this commit
+      await agent.setState({ files });
+      
+      return {
+        success: true,
+        message: `Successfully reverted to commit ${commitSha} with ${Object.keys(files).length} files.`,
+        commitDetails: {
+          sha: commit.sha,
+          message: commit.commit.message,
+          author: commit.commit.author,
+          date: commit.commit.author.date,
+        }
+      };
+    } catch (error) {
+      console.error("Error reverting to commit:", error);
+      return {
+        success: false,
+        message: `Error reverting to commit: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  },
+});
+
 // Export all GitHub tools
 export const githubTools = {
   createGitHubRepository,
@@ -905,4 +1242,6 @@ export const githubTools = {
   publishToGitHub,
   syncFromGitHub,
   getGitHubBuildStatus,
+  getCommitHistory,
+  revertToCommit,
 };
