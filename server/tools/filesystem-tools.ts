@@ -60,7 +60,10 @@ export const setFiles = tool({
         throw new Error("Agent context not found");
       }
       // Update state using agent.setState
-      await agent.setState({ files });
+      await agent.setState({
+        ...agent.state,
+        files,
+      });
       console.log("Agent file system state updated successfully.");
       return "Agent file system state updated successfully";
     } catch (error) {
@@ -109,7 +112,10 @@ export const createOrUpdateFile = tool({
         };
 
         // Update state to initialize streaming
-        await agent.setState({ files });
+        await agent.setState({
+          ...agent.state,
+          files,
+        });
 
         // Start streaming content in chunks
         const chunkSize = 50; // Characters per chunk
@@ -129,7 +135,10 @@ export const createOrUpdateFile = tool({
             };
 
             // Update state with new chunk
-            await agent.setState({ files: latestFiles });
+            await agent.setState({
+              ...agent.state,
+              files: latestFiles,
+            });
 
             // Small delay to simulate streaming and allow UI to update
             await new Promise((resolve) => setTimeout(resolve, 50));
@@ -148,7 +157,10 @@ export const createOrUpdateFile = tool({
           };
 
           // Update state to mark streaming as complete
-          await agent.setState({ files: finalFiles });
+          await agent.setState({
+            ...agent.state,
+            files: finalFiles,
+          });
         }
 
         return `File '${path}' has been ${fileExists ? "updated" : "created"} with streaming successfully.`;
@@ -173,7 +185,10 @@ export const createOrUpdateFile = tool({
         }
 
         // Update state
-        await agent.setState({ files });
+        await agent.setState({
+          ...agent.state,
+          files,
+        });
 
         return `File '${path}' has been ${fileExists ? "updated" : "created"} successfully.`;
       }
@@ -221,7 +236,10 @@ export const streamFileChunk = tool({
       };
 
       // Update state
-      await agent.setState({ files });
+      await agent.setState({
+        ...agent.state,
+        files,
+      });
 
       return isComplete
         ? `File '${path}' streaming completed successfully.`
@@ -260,7 +278,10 @@ export const deleteFile = tool({
       delete files[path];
 
       // Update state
-      await agent.setState({ files });
+      await agent.setState({
+        ...agent.state,
+        files,
+      });
 
       return `File '${path}' has been deleted successfully.`;
     } catch (error) {

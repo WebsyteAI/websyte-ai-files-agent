@@ -29,6 +29,17 @@ interface BuildStatus {
     created_at?: string;
     updated_at?: string;
   }>;
+  check_runs?: Array<{ // Add check_runs definition
+    name: string;
+    status: string;
+    conclusion: string | null;
+    started_at: string;
+    completed_at: string | null;
+    html_url: string;
+    app?: { // Make app optional as seen in StoragePanel
+      name: string;
+    };
+  }>;
 }
 
 interface Commit {
@@ -130,16 +141,37 @@ export function CommitTimeline({
     }
   };
 
-  // Generate build status tooltip content
+  // Generate detailed build status tooltip content
   const getBuildStatusTooltip = (commit: Commit) => {
     if (!commit.status) return 'Build status: Unknown';
-    return `Build status: ${commit.status.state}`;
+
+    let statusContent = `Build status: ${commit.status.state.toUpperCase()}\n`;
+
+    if (commit.status.statuses && commit.status.statuses.length > 0) {
+      statusContent += '\nStatus Checks:\n';
+      commit.status.statuses.forEach(s => {
+        statusContent += `- ${s.context}: ${s.state.toUpperCase()} (${s.description})\n`;
+      });
+    }
+
+    // Explicitly type 'cr' and handle optional 'app'
+    if (commit.status.check_runs && commit.status.check_runs.length > 0) {
+      statusContent += '\nCheck Runs:\n';
+      commit.status.check_runs.forEach((cr: { name: string; status: string; conclusion: string | null; app?: { name: string } }) => {
+        const conclusion = cr.conclusion ? cr.conclusion.toUpperCase() : 'RUNNING';
+        statusContent += `- ${cr.name} (${cr.app?.name || 'GitHub'}): ${conclusion}\n`;
+      });
+    }
+
+    return statusContent.trim();
   };
 
-  // Generate commit tooltip content
+  // Generate commit tooltip content including build status
   const getCommitTooltip = (commit: Commit) => {
-    let content = `${commit.commit.message}\n\n`;
-    content += `SHA: ${commit.sha.substring(0, 7)}\n`;
+    let content = `Commit: ${commit.commit.message}\n`;
+    content += `Author: ${commit.commit.author.name}\n`;
+    content += `Date: ${formatDate(commit.commit.author.date)} ${formatTime(commit.commit.author.date)}\n`;
+    content += `SHA: ${commit.sha.substring(0, 7)}\n\n`;
     content += getBuildStatusTooltip(commit);
     
     return content;

@@ -33,6 +33,10 @@ export class Chat extends AIChatAgent<Env, AgentState> {
   initialState: AgentState = {
     files: {},
     agentName: "", // Will be set from request
+    github: {
+      owner: "WebsyteAI", // Default GitHub owner
+      branch: "main", // Default GitHub branch
+    },
     dispatchNamespace: process.env.DISPATCH_NAMESPACE_NAME || "", // Set from environment variable
     dispatchNamespaceAccountId: process.env.DISPATCH_NAMESPACE_ACCOUNT_ID || "", // Set from environment variable
   };
@@ -56,6 +60,8 @@ export class Chat extends AIChatAgent<Env, AgentState> {
       );
     }
 
+    console.log('init state', this.state);
+
     // Update agent state with the agentName if it's not already set
     if (!this.state.agentName) {
       await this.setState({
@@ -63,6 +69,8 @@ export class Chat extends AIChatAgent<Env, AgentState> {
         agentName,
       });
     }
+
+    console.log('init state', this.state);
 
     // Continue with normal request processing
     return await super.onRequest(request);
@@ -127,8 +135,7 @@ export class Chat extends AIChatAgent<Env, AgentState> {
             date: new Date(),
           });
 
-          // Use the agentName from state or fall back to a default
-          const agentName = this.state.agentName;
+          const agentName = this.state.agentName || '';
 
           // Stream the AI response using GPT-4
           const result = streamText({

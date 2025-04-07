@@ -103,7 +103,7 @@ export default function Chat() {
     clearHistory,
   } = useAgentChat({
     agent,
-    maxSteps: 5,
+    maxSteps: 10,
   });
 
   // Scroll to bottom when messages change

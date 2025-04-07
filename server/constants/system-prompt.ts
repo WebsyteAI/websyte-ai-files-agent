@@ -14,7 +14,7 @@ import CloudflareSystemPrompt from "./cloudflare-system-context.txt";
  * @param agentName Name of the agent (used for package.json and wrangler.jsonc)
  * @returns Complete system prompt string
  */
-export function generateSystemPrompt(date: Date, schedulePrompt: string, agentName: string = 'websyte-ai-files-agent'): string {
+export function generateSystemPrompt(date: Date, schedulePrompt: string, agentName: string): string {
   return `
 ${CloudflareSystemPrompt}
 

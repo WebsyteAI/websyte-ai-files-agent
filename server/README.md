@@ -98,9 +98,3 @@ router.get('/api/files', async (c) => {
 
 - `OPENAI_API_KEY`: Required for AI functionality
 - `GITHUB_PERSONAL_ACCESS_TOKEN`: Required for GitHub operations
-
-## Agent Name
-
-The agent name is hardcoded as 'websyte-ai-files-agent' in the system prompt. This name is used for:
-- package.json and wrangler.jsonc file names
-- Ensuring consistent naming across generated files
