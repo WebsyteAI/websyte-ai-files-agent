@@ -34,13 +34,20 @@ export const publishToGitHub = tool({
 
       // Get GitHub configuration from agent state
       const github = currentState.github;
+      if (!github || !github.owner || !github.branch) {
+        return "GitHub configuration (owner, branch) not found in agent state.";
+      }
       const owner = github.owner;
-      const repo = currentState.agentName;
+      const repo = currentState.agentName; // Use agentName as repo name
       const branch = github.branch;
+
+      if (!repo) {
+        return "Agent name (used as repository name) not found in agent state.";
+      }
 
       console.log("Publishing files to GitHub:", files);
 
-      console.log('git state', agent.state);
+      console.log("git state", agent.state);
 
       if (Object.keys(files).length === 0) {
         return "No files to publish. Create some files first.";
@@ -396,14 +403,21 @@ export const syncFromGitHub = tool({
         throw new Error("Agent context not found");
       }
 
-      console.log('git state', agent.state);
+      console.log("git state", agent.state);
 
       // Get GitHub configuration from agent state
       const currentState = agent.state || {};
       const github = currentState.github;
+      if (!github || !github.owner || !github.branch) {
+        return "GitHub configuration (owner, branch) not found in agent state.";
+      }
       const owner = github.owner;
-      const repo = currentState.agentName;
+      const repo = currentState.agentName; // Use agentName as repo name
       const branch = github.branch;
+
+      if (!repo) {
+        return "Agent name (used as repository name) not found in agent state.";
+      }
 
       console.log(
         `Syncing files from GitHub: ${owner}/${repo}/${branch}${path ? `/${path}` : ""}`
@@ -568,12 +582,12 @@ export const syncFromGitHub = tool({
 });
 
 /**
- * Tool to create a new GitHub repository
+ * Tool to create a new GitHub repository using the agent's name and owner configuration.
  */
 export const createGitHubRepository = tool({
-  description: "Create a new GitHub repository for a user or organization",
+  description:
+    "Create a new GitHub repository using the agent's configured name and owner.",
   parameters: z.object({
-    name: z.string().describe("Name of the repository to create"),
     description: z
       .string()
       .optional()
@@ -583,37 +597,40 @@ export const createGitHubRepository = tool({
       .optional()
       .default(false)
       .describe("Whether the repository should be private (default: false)"),
-    org: z
-      .string()
-      .optional()
-      .describe(
-        "Optional: organization name to create the repository in. If not provided, creates in the user's account"
-      ),
     autoInit: z
       .boolean()
       .optional()
       .default(true)
       .describe("Initialize the repository with a README (default: true)"),
-    token: z
-      .string()
-      .optional()
-      .describe(
-        "GitHub personal access token (if not provided, will use environment variable)"
-      ),
   }),
   execute: async ({
-    name,
     description = "",
     private: isPrivate = false,
-    org,
     autoInit = true,
-    token,
   }) => {
     try {
-      // Use provided token or get from environment
-      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner; // This is the org or user
+      const name = currentState.agentName; // Use agentName as repo name
+
+      if (!owner) {
+        return "GitHub owner (user or organization) not configured in agent state.";
+      }
+      if (!name) {
+        return "Agent name (used as repository name) not found in agent state.";
+      }
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
       if (!authToken) {
-        return "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
+        return "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
       }
 
       // Setup common headers for GitHub API requests
@@ -632,14 +649,10 @@ export const createGitHubRepository = tool({
       // Base URL for GitHub API
       const apiBaseUrl = "https://api.github.com";
 
-      // Determine if creating in user account or organization
-      const endpoint = org
-        ? `${apiBaseUrl}/orgs/${org}/repos`
-        : `${apiBaseUrl}/user/repos`;
+      // Always create within the specified organization (owner)
+      const endpoint = `${apiBaseUrl}/orgs/${owner}/repos`;
 
-      console.log(
-        `Creating repository ${name}${org ? ` in organization ${org}` : ""}`
-      );
+      console.log(`Creating repository ${name} in organization ${owner}`);
 
       // Create repository
       const response = await fetch(endpoint, {
@@ -686,30 +699,36 @@ export const createGitHubRepository = tool({
 });
 
 /**
- * Tool to check if a GitHub repository exists
+ * Tool to check if the configured GitHub repository exists
  */
 export const checkGitHubRepository = tool({
-  description: "Check if a GitHub repository exists and get its information",
-  parameters: z.object({
-    owner: z
-      .string()
-      .describe(
-        "GitHub username or organization name that owns the repository"
-      ),
-    repo: z.string().describe("GitHub repository name to check"),
-    token: z
-      .string()
-      .optional()
-      .describe(
-        "GitHub personal access token (if not provided, will use environment variable)"
-      ),
-  }),
-  execute: async ({ owner, repo, token }) => {
+  description:
+    "Check if the GitHub repository configured in the agent state exists and get its information.",
+  parameters: z.object({}), // No parameters needed, uses agent state
+  execute: async () => {
     try {
-      // Use provided token or get from environment
-      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+
+      if (!owner) {
+        return "GitHub owner not configured in agent state.";
+      }
+      if (!repo) {
+        return "Agent name (repository name) not found in agent state.";
+      }
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
       if (!authToken) {
-        return "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
+        return "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
       }
 
       // Setup common headers for GitHub API requests
@@ -791,18 +810,12 @@ export const checkGitHubRepository = tool({
 });
 
 /**
- * Tool to get GitHub build status
+ * Tool to get GitHub build status for the configured repository
  */
 export const getGitHubBuildStatus = tool({
   description:
-    "Get build status information for a GitHub repository commit or branch",
+    "Get build status information for the configured GitHub repository commit or branch.",
   parameters: z.object({
-    owner: z
-      .string()
-      .describe(
-        "GitHub username or organization name that owns the repository"
-      ),
-    repo: z.string().describe("GitHub repository name"),
     ref: z.string().describe("Git reference (commit SHA, branch name, or tag)"),
     updateAgentState: z
       .boolean()
@@ -811,22 +824,39 @@ export const getGitHubBuildStatus = tool({
       .describe(
         "Whether to update the agent state with the build status information"
       ),
-    token: z
-      .string()
-      .optional()
-      .describe(
-        "GitHub personal access token (if not provided, will use environment variable)"
-      ),
   }),
-  execute: async ({ owner, repo, ref, updateAgentState = false, token }) => {
+  execute: async ({ ref, updateAgentState = false }) => {
     try {
-      // Use provided token or get from environment
-      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message:
-            "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
         };
       }
 
@@ -969,22 +999,18 @@ export const getGitHubBuildStatus = tool({
 });
 
 /**
- * Tool to get commit history from GitHub
+ * Tool to get commit history from the configured GitHub repository
  */
 export const getCommitHistory = tool({
-  description: "Get commit history for a GitHub repository branch",
+  description:
+    "Get commit history for the configured GitHub repository branch.",
   parameters: z.object({
-    owner: z
-      .string()
-      .describe(
-        "GitHub username or organization name that owns the repository"
-      ),
-    repo: z.string().describe("GitHub repository name"),
     branch: z
       .string()
       .optional()
-      .default("main")
-      .describe("Branch to get history for (default: main)"),
+      .describe(
+        "Branch to get history for (default: uses branch from agent state)"
+      ),
     perPage: z
       .number()
       .optional()
@@ -1005,31 +1031,48 @@ export const getCommitHistory = tool({
       .optional()
       .default(true)
       .describe("Whether to update the agent state with the commit history"),
-    token: z
-      .string()
-      .optional()
-      .describe(
-        "GitHub personal access token (if not provided, will use environment variable)"
-      ),
   }),
   execute: async ({
-    owner,
-    repo,
-    branch = "main",
+    branch: inputBranch, // Renamed to avoid conflict
     perPage = 10,
     page = 1,
     includeBuildStatus = true,
     updateAgentState = true,
-    token,
   }) => {
     try {
-      // Use provided token or get from environment
-      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+      const stateBranch = github?.branch; // Branch from state
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+      // Use input branch if provided, otherwise use branch from state, default to 'main' if neither exists
+      const branch = inputBranch || stateBranch || "main";
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message:
-            "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
         };
       }
 
@@ -1154,41 +1197,48 @@ export const getCommitHistory = tool({
 });
 
 /**
- * Tool to revert to a specific commit
+ * Tool to revert the agent's state to a specific commit from the configured repository
  */
 export const revertToCommit = tool({
-  description: "Sync files from a specific commit to the agent's state",
+  description:
+    "Sync files from a specific commit in the configured GitHub repository to the agent's state.",
   parameters: z.object({
-    owner: z
-      .string()
-      .describe(
-        "GitHub username or organization name that owns the repository"
-      ),
-    repo: z.string().describe("GitHub repository name"),
     commitSha: z.string().describe("The SHA of the commit to revert to"),
-    token: z
-      .string()
-      .optional()
-      .describe(
-        "GitHub personal access token (if not provided, will use environment variable)"
-      ),
   }),
-  execute: async ({ owner, repo, commitSha, token }) => {
+  execute: async ({ commitSha }) => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
         throw new Error("Agent context not found");
       }
 
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+
       console.log(`Reverting to commit: ${commitSha} in ${owner}/${repo}`);
 
-      // Use provided token or get from environment
-      const authToken = token || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message:
-            "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
         };
       }
 
@@ -1296,7 +1346,10 @@ export const revertToCommit = tool({
       }
 
       // Update agent state with the files from this commit
-      await agent.setState({ files });
+      await agent.setState({
+        ...currentState,
+        files,
+      });
 
       return {
         success: true,
