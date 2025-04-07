@@ -29,7 +29,10 @@ import {
   Robot,
   Sun,
   Trash,
-  ArrowsHorizontal,
+  List, // For mobile storage panel toggle
+  X,    // For closing mobile panels
+  ArrowsHorizontal, // For desktop storage panel toggle
+  GitCommit, // For timeline toggle
 } from "@phosphor-icons/react";
 
 // List of tools that require human confirmation
@@ -41,10 +44,11 @@ export default function Chat() {
   // Always use dark mode
   const [theme] = useState<"dark">("dark");
   const [showDebug, setShowDebug] = useState(false);
-  const [showStoragePanel, setShowStoragePanel] = useState(true);
+  // Separate states for panel visibility
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false); // Combined mobile/desktop state initially false
+  const [isStoragePanelOpen, setIsStoragePanelOpen] = useState(false); // Combined mobile/desktop state initially false
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
   const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
-  const [commitHistory, setCommitHistory] = useState<any | undefined>(undefined);
   const [commitHistoryLoading, setCommitHistoryLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -173,10 +177,12 @@ export default function Chat() {
         throw new Error(errorData.message || 'Failed to fetch commit history');
       }
       
-      const result = await response.json();
-      setCommitHistory(result.content);
+      // No need to set local state, tool updates agent state directly
+      // const result = await response.json(); 
+      // setCommitHistory(result.content); // REMOVED
     } catch (error) {
       console.error("Error fetching commit history:", error);
+      // Optionally set an error state here to display to the user
     } finally {
       setCommitHistoryLoading(false);
     }
@@ -224,12 +230,14 @@ export default function Chat() {
     }
   };
 
-  // Fetch commit history when component mounts
+  // Fetch commit history when agentName is available and files exist
   useEffect(() => {
-    if (!commitHistory && !commitHistoryLoading && agentState?.files && Object.keys(agentState.files).length > 0) {
+    // Check if agentName exists and files are present before fetching
+    if (agentState?.agentName && !commitHistoryLoading && agentState?.files && Object.keys(agentState.files).length > 0 && !agentState?.commitHistory) {
       fetchCommitHistory();
     }
-  }, [agentState?.files, commitHistory, commitHistoryLoading]);
+    // Depend on agentName to ensure repo name is ready for the API call
+  }, [agentState?.agentName, agentState?.files, agentState?.commitHistory, commitHistoryLoading]);
 
   return (
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
@@ -259,8 +267,9 @@ export default function Chat() {
               {/* <h2 className="font-semibold text-base">AI Chat Agent</h2> */}
             </div>
 
+            {/* Debug Toggle - Removed Bug icon */}
             <div className="flex items-center gap-2 mr-2">
-              <Bug size={16} />
+
               <Toggle
                 toggled={showDebug}
                 aria-label="Toggle debug mode"
@@ -268,23 +277,38 @@ export default function Chat() {
               />
             </div>
 
+            {/* Timeline Toggle Button - Already icon-only */}
             <Button
               variant="ghost"
               size="md"
               shape="square"
               className="rounded-full h-9 w-9"
-              onClick={() => setShowStoragePanel((prev) => !prev)}
+              onClick={() => setIsTimelineOpen((prev) => !prev)}
+              title="Toggle Commit History"
+            >
+              <GitCommit size={20} />
+            </Button>
+
+            {/* Storage Panel Toggle Button - Already icon-only */}
+            <Button
+              variant="ghost"
+              size="md"
+              shape="square"
+              className="rounded-full h-9 w-9"
+              onClick={() => setIsStoragePanelOpen((prev) => !prev)}
+              title="Toggle File Explorer"
             >
               <ArrowsHorizontal size={20} />
             </Button>
 
-
+            {/* Clear History Button - Already icon-only */}
             <Button
               variant="ghost"
               size="md"
               shape="square"
               className="rounded-full h-9 w-9"
               onClick={clearHistory}
+              title="Clear Chat History" // Added title for tooltip
             >
               <Trash size={20} />
             </Button>
@@ -551,29 +575,65 @@ export default function Chat() {
           </form>
         </div>
 
-        {/* Commit Timeline */}
-        {showStoragePanel && (
-          <>
-            {/* Timeline in the middle */}
-            <div className="h-full w-[80px] flex-shrink-0 flex flex-col">
-              <CommitTimeline 
-                commitHistory={commitHistory} 
-                loading={commitHistoryLoading} 
-                onRefresh={fetchCommitHistory}
-                onRevertToCommit={revertToCommit}
-              />
-            </div>
-            
-            {/* Storage Panel on the right */}
-            <div className="h-full flex-1">
-              <StoragePanel 
-                agentState={agentState} 
-                loading={agentStateLoading} 
-                onToggle={() => setShowStoragePanel(false)}
-              />
-            </div>
-          </>
-        )}
+        {/* Timeline Panel */}
+        <div
+          className={`
+            h-full flex-shrink-0 flex flex-col
+            md:relative md:w-[80px] md:border-r md:border-neutral-300 md:dark:border-neutral-800
+            fixed top-0 right-0 z-30 w-3/4 sm:w-1/2 md:w-[80px] bg-background shadow-2xl md:shadow-none
+            transform transition-transform duration-300 ease-in-out
+            ${isTimelineOpen ? "translate-x-0" : "translate-x-full"}
+            md:translate-x-0
+            ${isTimelineOpen ? "flex" : "hidden md:flex"}
+          `}
+        >
+          {/* Close button for mobile */}
+          <Button
+            variant="ghost"
+            size="md"
+            shape="square"
+            className="absolute top-2 right-2 rounded-full h-9 w-9 md:hidden z-40"
+            onClick={() => setIsTimelineOpen(false)}
+          >
+            <X size={20} />
+          </Button>
+          <CommitTimeline
+            commitHistory={agentState?.commitHistory} // Pass from agent state
+            loading={commitHistoryLoading}
+            onRefresh={fetchCommitHistory}
+            onRevertToCommit={revertToCommit}
+          />
+        </div>
+
+        {/* Storage Panel */}
+        <div
+          className={`
+            h-full flex-1 flex flex-col
+            md:relative
+            fixed top-0 right-0 z-20 w-full sm:w-3/4 bg-background shadow-2xl md:shadow-none
+            transform transition-transform duration-300 ease-in-out
+            ${isStoragePanelOpen ? "translate-x-0" : "translate-x-full"}
+            md:translate-x-0
+            ${isStoragePanelOpen ? "flex" : "hidden md:flex"}
+            ${isTimelineOpen ? "md:translate-x-0" : "md:translate-x-0"} /* Adjust based on timeline state if needed */
+          `}
+          // Add logic here if timeline pushes storage panel on desktop
+        >
+          {/* Close button for mobile */}
+          <Button
+            variant="ghost"
+            size="md"
+            shape="square"
+            className="absolute top-2 right-2 rounded-full h-9 w-9 md:hidden z-30"
+            onClick={() => setIsStoragePanelOpen(false)}
+          >
+            <X size={20} />
+          </Button>
+          <StoragePanel
+            agentState={agentState}
+            loading={agentStateLoading}
+          />
+        </div>
       </div>
     </div>
   );

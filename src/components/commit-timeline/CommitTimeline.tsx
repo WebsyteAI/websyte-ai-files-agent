@@ -179,9 +179,10 @@ export function CommitTimeline({
 
   return (
     <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
-      <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-center sticky top-0 z-10">
-        <div 
-          className="flex items-center justify-center h-8 w-8 cursor-pointer"
+      {/* Use justify-end and keep icon contained to prevent overlap with mobile 'X' button */}
+      <div className="px-4 pr-12 md:pr-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-end sticky top-0 z-10">
+        <div
+          className="flex items-center justify-center h-8 w-8 cursor-pointer flex-shrink-0" // Added flex-shrink-0
           onClick={onRefresh}
         >
           <GitCommit size={24} className={`text-[#F48120] ${loading ? "animate-spin" : ""}`} />

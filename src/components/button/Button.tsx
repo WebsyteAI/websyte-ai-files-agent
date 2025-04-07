@@ -72,9 +72,9 @@ const ButtonComponent = ({
       href={href}
       rel={external ? "noopener noreferrer" : undefined}
       target={external ? "_blank" : undefined}
-      {...props}
+      {...props} // The 'title' prop passed here will become the HTML title attribute
     >
-      {title}
+      {/* Removed direct rendering of {title} */}
 
       {loading ? (
         <span

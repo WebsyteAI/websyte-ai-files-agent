@@ -314,17 +314,21 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
 
   return (
     <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
-      <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8">
+      {/* Add padding-right on mobile (pr-12) to avoid overlap with the absolute 'X' button from app.tsx */}
+      {/* Removed justify-between, added flex-1 to title container */}
+      <div className="px-4 pr-12 md:pr-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-4 sticky top-0 z-10">
+        {/* Left side: Title - Allow to grow */}
+        <div className="flex items-center gap-3 flex-1 min-w-0"> {/* Added flex-1 and min-w-0 */}
+          <div className="flex items-center justify-center h-8 w-8 flex-shrink-0"> {/* Added flex-shrink-0 */}
             <FolderOpen size={24} className="text-[#F48120]" />
           </div>
-          <div className="flex-1">
-            <h2 className="font-semibold text-base">{workerId}</h2>
+          <div className="flex-1 truncate"> {/* Added truncate */}
+            <h2 className="font-semibold text-base truncate">{workerId}</h2> {/* Added truncate */}
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
+
+        {/* Right side: Buttons - Don't grow/shrink */}
+        <div className="flex items-center gap-2 flex-shrink-0"> {/* Added flex-shrink-0 */}
           {onToggle && (
             <Button
               variant="ghost"
@@ -347,23 +351,26 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center gap-1"
+              shape="square" // Make square for icon-only
+              className="h-9 w-9" // Adjust size
               disabled={isFetchingStatus}
               onClick={fetchBuildStatus}
               title="Fetch build status"
             >
-              <ArrowClockwise size={16} className={isFetchingStatus ? "animate-spin" : ""} />
-              <span className="hidden md:inline">Status</span>
+              <ArrowClockwise size={18} className={isFetchingStatus ? "animate-spin" : ""} />
+              {/* Removed text span */}
             </Button>
             <Button
               variant="secondary"
               size="sm"
-              className="flex items-center gap-1"
+              shape="square" // Make square for icon-only
+              className="h-9 w-9" // Adjust size
               disabled={isPublishing || fileCount === 0}
               onClick={handleGitHubPublish}
+              title="Publish to GitHub" // Add title for tooltip
             >
-              <GithubLogo size={16} />
-              <span>GitHub</span>
+              <GithubLogo size={18} />
+              {/* Removed text span */}
             </Button>
           </div>
         </div>
