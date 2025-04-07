@@ -11,45 +11,41 @@ import { agentContext } from "../agent";
  */
 export const listWorkerSecrets = tool({
   description: "List all secrets bound to a Cloudflare Worker script",
-  parameters: z.object({
-    accountId: z.string().describe("Cloudflare account ID"),
-    dispatchNamespace: z.string().optional().describe("Workers for Platforms namespace (optional if stored in agent state)"),
-    scriptName: z.string().optional().describe("Worker script name (optional if stored in agent state)"),
-  }),
-  execute: async ({ accountId, dispatchNamespace, scriptName }) => {
+  parameters: z.object({}),
+  execute: async () => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
         throw new Error("Agent context not found");
       }
 
-      // Get values from environment variables or agent state if not provided
+      // Get values from agent state
       const currentState = agent.state || {};
-      const namespace = dispatchNamespace || currentState.dispatchNamespace || process.env.DISPATCH_NAMESPACE_NAME;
-      const worker = scriptName || currentState.agentName;
-      const accountIdToUse = accountId || process.env.DISPATCH_NAMESPACE_ACCOUNT_ID;
+      const namespace = currentState.dispatchNamespace;
+      const worker = currentState.agentName;
+      const accountIdToUse = currentState.dispatchNamespaceAccountId;
+
+      console.log("Current agent state:", accountIdToUse, namespace, worker);
 
       // Validate required parameters
       if (!namespace) {
-        return {
-          success: false,
-          message: "Dispatch namespace is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Dispatch namespace is required in agent state");
       }
 
       if (!worker) {
-        return {
-          success: false,
-          message: "Worker script name is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Worker script name is required in agent state");
+      }
+
+      if (!accountIdToUse) {
+        throw new Error("Account ID is required in agent state");
       }
 
       // Get API token from environment
-      const authToken = process.env.CLOUDFLARE_API_KEY;
+      const authToken = process.env.CLOUDFLARE_API_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message: "CLOUDFLARE_API_KEY environment variable not set. Please ensure it is configured in your environment."
+          message: "CLOUDFLARE_API_TOKEN environment variable not set. Please ensure it is configured in your environment."
         };
       }
 
@@ -80,30 +76,6 @@ export const listWorkerSecrets = tool({
       
       const data = await response.json();
       
-      // Update agent state with namespace, account ID, and script name if they were provided
-      if (dispatchNamespace || scriptName || accountId) {
-        const stateUpdates: Record<string, any> = {};
-        
-        if (dispatchNamespace && dispatchNamespace !== currentState.dispatchNamespace) {
-          stateUpdates.dispatchNamespace = dispatchNamespace;
-        }
-        
-        if (accountId && accountId !== currentState.dispatchNamespaceAccountId) {
-          stateUpdates.dispatchNamespaceAccountId = accountId;
-        }
-        
-        if (scriptName && scriptName !== currentState.agentName) {
-          stateUpdates.agentName = scriptName;
-        }
-        
-        if (Object.keys(stateUpdates).length > 0) {
-          await agent.setState({
-            ...currentState,
-            ...stateUpdates,
-          });
-          console.log("Updated agent state with worker configuration");
-        }
-      }
       
       return {
         success: true,
@@ -126,46 +98,41 @@ export const listWorkerSecrets = tool({
 export const addWorkerSecret = tool({
   description: "Add a secret to a Cloudflare Worker script",
   parameters: z.object({
-    accountId: z.string().describe("Cloudflare account ID"),
-    dispatchNamespace: z.string().optional().describe("Workers for Platforms namespace (optional if stored in agent state)"),
-    scriptName: z.string().optional().describe("Worker script name (optional if stored in agent state)"),
     secretName: z.string().describe("Name of the secret to add"),
     secretValue: z.string().describe("Value of the secret"),
   }),
-  execute: async ({ accountId, dispatchNamespace, scriptName, secretName, secretValue }) => {
+  execute: async ({ secretName, secretValue }) => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
         throw new Error("Agent context not found");
       }
 
-      // Get values from environment variables or agent state if not provided
+      // Get values from agent state
       const currentState = agent.state || {};
-      const namespace = dispatchNamespace || currentState.dispatchNamespace || process.env.DISPATCH_NAMESPACE_NAME;
-      const worker = scriptName || currentState.agentName;
-      const accountIdToUse = accountId || process.env.DISPATCH_NAMESPACE_ACCOUNT_ID;
+      const namespace = currentState.dispatchNamespace;
+      const worker = currentState.agentName;
+      const accountIdToUse = currentState.dispatchNamespaceAccountId;
 
       // Validate required parameters
       if (!namespace) {
-        return {
-          success: false,
-          message: "Dispatch namespace is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Dispatch namespace is required in agent state");
       }
 
       if (!worker) {
-        return {
-          success: false,
-          message: "Worker script name is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Worker script name is required in agent state");
+      }
+
+      if (!accountIdToUse) {
+        throw new Error("Account ID is required in agent state");
       }
 
       // Get API token from environment
-      const authToken = process.env.CLOUDFLARE_API_KEY;
+      const authToken = process.env.CLOUDFLARE_API_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message: "CLOUDFLARE_API_KEY environment variable not set. Please ensure it is configured in your environment."
+          message: "CLOUDFLARE_API_TOKEN environment variable not set. Please ensure it is configured in your environment."
         };
       }
 
@@ -201,30 +168,6 @@ export const addWorkerSecret = tool({
       
       const data = await response.json();
       
-      // Update agent state with namespace, account ID, and script name if they were provided
-      if (dispatchNamespace || scriptName || accountId) {
-        const stateUpdates: Record<string, any> = {};
-        
-        if (dispatchNamespace && dispatchNamespace !== currentState.dispatchNamespace) {
-          stateUpdates.dispatchNamespace = dispatchNamespace;
-        }
-        
-        if (accountId && accountId !== currentState.dispatchNamespaceAccountId) {
-          stateUpdates.dispatchNamespaceAccountId = accountId;
-        }
-        
-        if (scriptName && scriptName !== currentState.agentName) {
-          stateUpdates.agentName = scriptName;
-        }
-        
-        if (Object.keys(stateUpdates).length > 0) {
-          await agent.setState({
-            ...currentState,
-            ...stateUpdates,
-          });
-          console.log("Updated agent state with worker configuration");
-        }
-      }
       
       return {
         success: true,
@@ -247,45 +190,40 @@ export const addWorkerSecret = tool({
 export const getWorkerSecret = tool({
   description: "Get a specific secret binding from a Cloudflare Worker script",
   parameters: z.object({
-    accountId: z.string().describe("Cloudflare account ID"),
-    dispatchNamespace: z.string().optional().describe("Workers for Platforms namespace (optional if stored in agent state)"),
-    scriptName: z.string().optional().describe("Worker script name (optional if stored in agent state)"),
     secretName: z.string().describe("Name of the secret to get"),
   }),
-  execute: async ({ accountId, dispatchNamespace, scriptName, secretName }) => {
+  execute: async ({ secretName }) => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
         throw new Error("Agent context not found");
       }
 
-      // Get values from environment variables or agent state if not provided
+      // Get values from agent state
       const currentState = agent.state || {};
-      const namespace = dispatchNamespace || currentState.dispatchNamespace || process.env.DISPATCH_NAMESPACE_NAME;
-      const worker = scriptName || currentState.agentName;
-      const accountIdToUse = accountId || process.env.DISPATCH_NAMESPACE_ACCOUNT_ID;
+      const namespace = currentState.dispatchNamespace;
+      const worker = currentState.agentName;
+      const accountIdToUse = currentState.dispatchNamespaceAccountId;
 
       // Validate required parameters
       if (!namespace) {
-        return {
-          success: false,
-          message: "Dispatch namespace is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Dispatch namespace is required in agent state");
       }
 
       if (!worker) {
-        return {
-          success: false,
-          message: "Worker script name is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Worker script name is required in agent state");
+      }
+
+      if (!accountIdToUse) {
+        throw new Error("Account ID is required in agent state");
       }
 
       // Get API token from environment
-      const authToken = process.env.CLOUDFLARE_API_KEY;
+      const authToken = process.env.CLOUDFLARE_API_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message: "CLOUDFLARE_API_KEY environment variable not set. Please ensure it is configured in your environment."
+          message: "CLOUDFLARE_API_TOKEN environment variable not set. Please ensure it is configured in your environment."
         };
       }
 
@@ -316,30 +254,6 @@ export const getWorkerSecret = tool({
       
       const data = await response.json();
       
-      // Update agent state with namespace, account ID, and script name if they were provided
-      if (dispatchNamespace || scriptName || accountId) {
-        const stateUpdates: Record<string, any> = {};
-        
-        if (dispatchNamespace && dispatchNamespace !== currentState.dispatchNamespace) {
-          stateUpdates.dispatchNamespace = dispatchNamespace;
-        }
-        
-        if (accountId && accountId !== currentState.dispatchNamespaceAccountId) {
-          stateUpdates.dispatchNamespaceAccountId = accountId;
-        }
-        
-        if (scriptName && scriptName !== currentState.agentName) {
-          stateUpdates.agentName = scriptName;
-        }
-        
-        if (Object.keys(stateUpdates).length > 0) {
-          await agent.setState({
-            ...currentState,
-            ...stateUpdates,
-          });
-          console.log("Updated agent state with worker configuration");
-        }
-      }
       
       return {
         success: true,
@@ -362,45 +276,40 @@ export const getWorkerSecret = tool({
 export const deleteWorkerSecret = tool({
   description: "Delete a secret from a Cloudflare Worker script",
   parameters: z.object({
-    accountId: z.string().describe("Cloudflare account ID"),
-    dispatchNamespace: z.string().optional().describe("Workers for Platforms namespace (optional if stored in agent state)"),
-    scriptName: z.string().optional().describe("Worker script name (optional if stored in agent state)"),
     secretName: z.string().describe("Name of the secret to delete"),
   }),
-  execute: async ({ accountId, dispatchNamespace, scriptName, secretName }) => {
+  execute: async ({ secretName }) => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
         throw new Error("Agent context not found");
       }
 
-      // Get values from environment variables or agent state if not provided
+      // Get values from agent state
       const currentState = agent.state || {};
-      const namespace = dispatchNamespace || currentState.dispatchNamespace || process.env.DISPATCH_NAMESPACE_NAME;
-      const worker = scriptName || currentState.agentName;
-      const accountIdToUse = accountId || process.env.DISPATCH_NAMESPACE_ACCOUNT_ID;
+      const namespace = currentState.dispatchNamespace;
+      const worker = currentState.agentName;
+      const accountIdToUse = currentState.dispatchNamespaceAccountId;
 
       // Validate required parameters
       if (!namespace) {
-        return {
-          success: false,
-          message: "Dispatch namespace is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Dispatch namespace is required in agent state");
       }
 
       if (!worker) {
-        return {
-          success: false,
-          message: "Worker script name is required. Either provide it as a parameter or set it in agent state first."
-        };
+        throw new Error("Worker script name is required in agent state");
+      }
+
+      if (!accountIdToUse) {
+        throw new Error("Account ID is required in agent state");
       }
 
       // Get API token from environment
-      const authToken = process.env.CLOUDFLARE_API_KEY;
+      const authToken = process.env.CLOUDFLARE_API_TOKEN;
       if (!authToken) {
         return {
           success: false,
-          message: "CLOUDFLARE_API_KEY environment variable not set. Please ensure it is configured in your environment."
+          message: "CLOUDFLARE_API_TOKEN environment variable not set. Please ensure it is configured in your environment."
         };
       }
 
@@ -429,30 +338,6 @@ export const deleteWorkerSecret = tool({
         };
       }
       
-      // Update agent state with namespace, account ID, and script name if they were provided
-      if (dispatchNamespace || scriptName || accountId) {
-        const stateUpdates: Record<string, any> = {};
-        
-        if (dispatchNamespace && dispatchNamespace !== currentState.dispatchNamespace) {
-          stateUpdates.dispatchNamespace = dispatchNamespace;
-        }
-        
-        if (accountId && accountId !== currentState.dispatchNamespaceAccountId) {
-          stateUpdates.dispatchNamespaceAccountId = accountId;
-        }
-        
-        if (scriptName && scriptName !== currentState.agentName) {
-          stateUpdates.agentName = scriptName;
-        }
-        
-        if (Object.keys(stateUpdates).length > 0) {
-          await agent.setState({
-            ...currentState,
-            ...stateUpdates,
-          });
-          console.log("Updated agent state with worker configuration");
-        }
-      }
       
       return {
         success: true,
@@ -468,52 +353,10 @@ export const deleteWorkerSecret = tool({
   },
 });
 
-/**
- * Tool to set the worker configuration in the agent state
- */
-export const setWorkerConfig = tool({
-  description: "Set the Cloudflare Worker configuration in the agent state",
-  parameters: z.object({
-    dispatchNamespace: z.string().describe("Workers for Platforms namespace"),
-    dispatchNamespaceAccountId: z.string().describe("Cloudflare account ID for the dispatch namespace"),
-    scriptName: z.string().describe("Worker script name"),
-  }),
-  execute: async ({ dispatchNamespace, dispatchNamespaceAccountId, scriptName }) => {
-    try {
-      const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-
-      const currentState = agent.state || {};
-      
-      // Update agent state with the worker configuration
-      await agent.setState({
-        ...currentState,
-        dispatchNamespace,
-        dispatchNamespaceAccountId,
-        agentName: scriptName,
-      });
-      
-      return {
-        success: true,
-        message: `Successfully set worker configuration in agent state: namespace=${dispatchNamespace}, script=${scriptName}`,
-      };
-    } catch (error) {
-      console.error("Error setting worker configuration:", error);
-      return {
-        success: false,
-        message: `Error setting worker configuration: ${error instanceof Error ? error.message : String(error)}`
-      };
-    }
-  },
-});
-
 // Export all secrets tools
 export const secretsTools = {
   listWorkerSecrets,
   addWorkerSecret,
   getWorkerSecret,
   deleteWorkerSecret,
-  setWorkerConfig,
 };

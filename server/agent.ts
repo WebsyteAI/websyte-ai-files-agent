@@ -43,21 +43,24 @@ export class Chat extends AIChatAgent<Env, AgentState> {
    */
   async onRequest(request: Request): Promise<Response> {
     // Extract agentName from the x-partykit-room header
-    const partyKitRoom = request.headers.get('x-partykit-room');
-    
+    const partyKitRoom = request.headers.get("x-partykit-room");
+
     // Use the header value as the agentName
     const agentName = partyKitRoom;
 
     // Validate agentName
     if (!agentName) {
-      return new Response('Agent name is required (x-partykit-room header missing)', { status: 400 });
+      return new Response(
+        "Agent name is required (x-partykit-room header missing)",
+        { status: 400 }
+      );
     }
 
     // Update agent state with the agentName if it's not already set
     if (!this.state.agentName) {
       await this.setState({
         ...this.state,
-        agentName
+        agentName,
       });
     }
 
@@ -69,16 +72,22 @@ export class Chat extends AIChatAgent<Env, AgentState> {
    * Handle WebSocket connections to the agent
    * Extracts and validates the agentName from the connection request headers
    */
-  async onConnect(connection: Connection, ctx: ConnectionContext): Promise<void> {
+  async onConnect(
+    connection: Connection,
+    ctx: ConnectionContext
+  ): Promise<void> {
     // Extract agentName from the x-partykit-room header
-    const partyKitRoom = ctx.request.headers.get('x-partykit-room');
-    
+    const partyKitRoom = ctx.request.headers.get("x-partykit-room");
+
     // Use the header value as the agentName
     const agentName = partyKitRoom;
 
     // Validate agentName
     if (!agentName) {
-      connection.close(1008, 'Agent name is required (x-partykit-room header missing)');
+      connection.close(
+        1008,
+        "Agent name is required (x-partykit-room header missing)"
+      );
       return;
     }
 
@@ -86,7 +95,7 @@ export class Chat extends AIChatAgent<Env, AgentState> {
     if (!this.state.agentName) {
       await this.setState({
         ...this.state,
-        agentName
+        agentName,
       });
     }
 
@@ -114,8 +123,10 @@ export class Chat extends AIChatAgent<Env, AgentState> {
           });
 
           // Get the schedule prompt
-          const schedulePrompt = unstable_getSchedulePrompt({ date: new Date() });
-          
+          const schedulePrompt = unstable_getSchedulePrompt({
+            date: new Date(),
+          });
+
           // Use the agentName from state or fall back to a default
           const agentName = this.state.agentName;
 
