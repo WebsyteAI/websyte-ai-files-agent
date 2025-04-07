@@ -32,6 +32,8 @@ export const publishToGitHub = tool({
       const currentState = agent.state || {};
       const files = currentState.files || {};
 
+      console.log("Current agent state:", currentState);
+
       // Get GitHub configuration from agent state
       const github = currentState.github;
       if (!github || !github.owner || !github.branch) {
@@ -571,7 +573,10 @@ export const syncFromGitHub = tool({
 
       // Update agent state with the synced files
       // This completely replaces the existing files with the ones from GitHub
-      await agent.setState({ files: syncedFiles });
+      await agent.setState({ 
+        ...agent.state,
+        files: syncedFiles 
+      });
 
       return `Successfully synced ${Object.keys(syncedFiles).length} files from GitHub repository ${owner}/${repo} on branch ${branch}.`;
     } catch (error) {
