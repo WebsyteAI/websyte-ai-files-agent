@@ -68,7 +68,7 @@ export function ChatInput({
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Publish this worker to Cloudflare" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Publish app" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
             <CloudArrowUp size={16} className="mr-2" />
@@ -79,7 +79,7 @@ export function ChatInput({
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Check the build status of this worker" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Check the build status" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
             <Hammer size={16} className="mr-2" />
@@ -90,7 +90,7 @@ export function ChatInput({
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Test the endpoint of this worker" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Test the endpoint" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
             <Globe size={16} className="mr-2" />
@@ -101,7 +101,7 @@ export function ChatInput({
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Sync this worker from Github" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Sync from Github" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
             <GitPullRequest size={16} className="mr-2" />

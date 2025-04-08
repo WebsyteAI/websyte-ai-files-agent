@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/tooltip";
-import { Robot } from "@phosphor-icons/react";
+import { Robot, CaretDown, CaretRight } from "@phosphor-icons/react";
 import { Avatar } from "@/components/avatar/Avatar";
 import { WelcomeCard } from "./WelcomeCard";
 import type { Message } from "@ai-sdk/react";
@@ -20,6 +20,82 @@ import type { tools } from "../../../server/tools";
 const toolsRequiringConfirmation: (keyof typeof tools)[] = [
   "getWeatherInformation",
 ];
+
+// Tool message component with collapsible content
+function ToolMessage({ toolInvocation, addToolResult }: { 
+  toolInvocation: any; 
+  addToolResult: (result: { toolCallId: string; result: string }) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const toolCallId = toolInvocation.toolCallId;
+  
+  return (
+    <Card className="p-3 my-2 rounded-md bg-neutral-100 dark:bg-neutral-900 border-l-2 border-l-[#F48120]">
+      <div 
+        className="flex items-center gap-2 cursor-pointer" 
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="bg-[#F48120]/10 p-1.5 rounded-full">
+          <Robot size={16} className="text-[#F48120]" />
+        </div>
+        <div className="flex-1">
+          <h4 className="font-medium text-sm">
+            {toolInvocation.toolName}
+          </h4>
+          <p className="text-xs text-muted-foreground">
+            {toolInvocation.state === "partial-call" && "Preparing..."}
+            {toolInvocation.state === "call" && "Calling tool..."}
+            {toolInvocation.state === "result" && "Completed"}
+          </p>
+        </div>
+        {toolInvocation.state === "partial-call" ? (
+          <div className="h-4 w-4 rounded-full border-2 border-[#F48120] border-t-transparent animate-spin"></div>
+        ) : (
+          isExpanded ? 
+            <CaretDown size={16} className="text-muted-foreground" /> : 
+            <CaretRight size={16} className="text-muted-foreground" />
+        )}
+      </div>
+      
+      {isExpanded && (
+        <div className="mt-3">
+          {(toolInvocation.args && Object.keys(toolInvocation.args).length > 0) && (
+            <div className="mb-2">
+              <h5 className="text-xs font-medium mb-1 text-muted-foreground">
+                Arguments:
+              </h5>
+              <pre className="bg-background/80 p-2 rounded-md text-xs overflow-auto max-h-[100px]">
+                {JSON.stringify(
+                  toolInvocation.args,
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
+          )}
+          
+          {toolInvocation.state === "result" && (
+            <div>
+              <h5 className="text-xs font-medium mb-1 text-muted-foreground">
+                Result:
+              </h5>
+              <pre className="bg-background/80 p-2 rounded-md text-xs overflow-auto max-h-[150px]">
+                {JSON.stringify(
+                  // Access the result data safely using type assertion
+                  (toolInvocation as any).data || 
+                  (toolInvocation as any).result || 
+                  "No result data available",
+                  null, 
+                  2
+                )}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -133,6 +209,7 @@ export function ChatMessages({
                           const toolInvocation = part.toolInvocation;
                           const toolCallId = toolInvocation.toolCallId;
 
+                          // For tools requiring confirmation in "call" state
                           if (
                             toolsRequiringConfirmation.includes(
                               toolInvocation.toolName as keyof typeof tools
@@ -207,7 +284,9 @@ export function ChatMessages({
                               </Card>
                             );
                           }
-                          return null;
+                          
+                          // For all other tool invocations (including those in progress or completed)
+                          return <ToolMessage key={i} toolInvocation={toolInvocation} addToolResult={addToolResult} />;
                         }
                         return null;
                       })}
