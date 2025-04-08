@@ -408,8 +408,8 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
                       onClick={() => toggleFileExpansion(path)}
                     >
                       <div className="flex items-center">
-                        {expandedFiles[path] ? <CaretDown size={16} className="mr-2" /> : <CaretRight size={16} className="mr-2" />}
-                        <span>{path}</span>
+                        {expandedFiles[path] ? <CaretDown size={16} className="mr-2 text-white" /> : <CaretRight size={16} className="mr-2 text-white" />}
+                        <span className="text-white">{path}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <button

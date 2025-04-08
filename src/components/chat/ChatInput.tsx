@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import { Button } from "@/components/button/Button";
 import { Textarea } from "@/components/textarea";
-import { PaperPlaneRight, Code, Lightning, FileCode, Lightbulb } from "@phosphor-icons/react";
+import { PaperPlaneRight, CloudArrowUp, Hammer, Globe, GitPullRequest } from "@phosphor-icons/react";
 
 interface ChatInputProps {
   input: string;
@@ -61,51 +61,51 @@ export function ChatInput({
           </div>
         </div>
         
-        {/* Predefined prompt buttons */}
+        {/* Action buttons */}
         <div className="flex flex-wrap gap-2 mt-3 justify-center">
           <Button
             variant="ghost"
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Generate a Cloudflare Worker for me" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Publish this worker to Cloudflare" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
-            <Code size={16} className="mr-2" />
-            Generate Worker
+            <CloudArrowUp size={16} className="mr-2" />
+            Publish
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Optimize this code for performance" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Check the build status of this worker" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
-            <Lightning size={16} className="mr-2" />
-            Optimize Code
+            <Hammer size={16} className="mr-2" />
+            Check build
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Add TypeScript types to this code" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Test the endpoint of this worker" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
-            <FileCode size={16} className="mr-2" />
-            Add Types
+            <Globe size={16} className="mr-2" />
+            Test endpoint
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
             onClick={() => {
-              handleInputChange({ target: { value: "Suggest improvements for this code" } } as React.ChangeEvent<HTMLTextAreaElement>);
+              handleInputChange({ target: { value: "Sync this worker from Github" } } as React.ChangeEvent<HTMLTextAreaElement>);
             }}
           >
-            <Lightbulb size={16} className="mr-2" />
-            Suggest Improvements
+            <GitPullRequest size={16} className="mr-2" />
+            Sync from Github
           </Button>
         </div>
       </div>

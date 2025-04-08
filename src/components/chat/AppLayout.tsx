@@ -89,17 +89,14 @@ export function AppLayout({
         
         {/* Storage Panel - Mobile (Drawer) */}
         <Drawer open={isStoragePanelOpen && isMobile} onOpenChange={setIsStoragePanelOpen}>
-          <DrawerContent className="h-[85vh]">
-            <DrawerHeader>
-              <DrawerTitle>Files</DrawerTitle>
-            </DrawerHeader>
-            <ScrollArea className="flex-1 px-4">
+          <DrawerContent className="h-[100dvh] flex flex-col">
+            <ScrollArea className="flex-1 px-4 overflow-y-auto pt-4">
               <StoragePanel
                 agentState={agentState}
                 loading={agentStateLoading}
               />
             </ScrollArea>
-            <DrawerFooter>
+            <DrawerFooter className="flex-shrink-0 mt-auto">
               <DrawerClose asChild>
                 <Button variant="secondary">Close</Button>
               </DrawerClose>
