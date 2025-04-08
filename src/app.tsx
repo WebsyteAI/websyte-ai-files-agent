@@ -10,6 +10,7 @@ import type { tools } from "../server/tools";
 import { Button } from "@/components/button/Button";
 import { Card } from "@/components/card/Card";
 import { Input } from "@/components/input/Input";
+import { Textarea } from "@/components/textarea";
 import { Avatar } from "@/components/avatar/Avatar";
 import { Toggle } from "@/components/toggle/Toggle";
 import { 
@@ -20,6 +21,17 @@ import {
 } from "@/components/tooltip";
 import { StoragePanel } from "@/components/storage-panel/StoragePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
+import { ScrollArea } from "@/components/scroll-area/ScrollArea";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/drawer";
 
 // Icon imports
 import {
@@ -33,6 +45,11 @@ import {
   X,    // For closing mobile panels
   ArrowsHorizontal, // For desktop storage panel toggle
   GitCommit, // For timeline toggle
+  Code,
+  Lightning,
+  MagicWand,
+  FileCode,
+  Lightbulb,
 } from "@phosphor-icons/react";
 
 // List of tools that require human confirmation
@@ -50,7 +67,24 @@ export default function Chat() {
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
   const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
   const [commitHistoryLoading, setCommitHistoryLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false); // Track if we're on mobile
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Check if we're on mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkIfMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -243,8 +277,8 @@ export default function Chat() {
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
       <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[100dvh] mx-auto relative">
         {/* Chat Panel */}
-        <div className="h-full md:w-1/3 w-full flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
-          <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10">
+        <div className="h-full md:w-1/3 w-full flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative">
+          <div className="px-4 py-3 flex items-center gap-3 sticky top-0 z-10 bg-background">
             <div className="flex items-center justify-center h-8 w-8">
               <svg
                 width="28px"
@@ -315,7 +349,7 @@ export default function Chat() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24 max-h-[calc(100vh-10rem)]">
+          <ScrollArea className="flex-1 p-4 space-y-4">
             {agentMessages.length === 0 && (
               <div className="h-full flex items-center justify-center">
                 <Card className="p-6 max-w-md mx-auto bg-neutral-100 dark:bg-neutral-900">
@@ -526,7 +560,7 @@ export default function Chat() {
               );
             })}
             <div ref={messagesEndRef} />
-          </div>
+          </ScrollArea>
 
           {/* Input Area */}
           <form
@@ -539,18 +573,18 @@ export default function Chat() {
                 },
               })
             }
-            className="p-3 bg-input-background absolute bottom-0 left-0 right-0 z-10 border-t border-neutral-300 dark:border-neutral-800"
+            className="p-4 bg-input-background bottom-0 left-0 right-0 z-10"
           >
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <Input
+            <div className="mx-auto max-w-3xl">
+              <div className="relative rounded-2xl shadow-md bg-neutral-100 dark:bg-neutral-900">
+                <Textarea
                   disabled={pendingToolCallConfirmation}
                   placeholder={
                     pendingToolCallConfirmation
                       ? "Please respond to the tool confirmation above..."
-                      : "Type your message..."
+                      : "Ask anything..."
                   }
-                  className="pl-4 pr-10 py-2 w-full rounded-full"
+                  className="pl-4 pr-12 py-3 w-full rounded-2xl max-h-[200px] overflow-y-auto min-h-[70px] bg-transparent border-none focus:ring-0 focus:outline-none"
                   value={agentInput}
                   onChange={handleAgentInputChange}
                   onKeyDown={(e) => {
@@ -559,18 +593,67 @@ export default function Chat() {
                       handleAgentSubmit(e as unknown as React.FormEvent);
                     }
                   }}
-                  onValueChange={undefined}
                 />
+                
+                <div className="absolute right-2 bottom-2">
+                  <Button
+                    type="submit"
+                    shape="square"
+                    className="rounded-full h-8 w-8 flex-shrink-0 bg-[#F48120] hover:bg-[#F48120]/90 text-white"
+                    disabled={pendingToolCallConfirmation || !agentInput.trim()}
+                  >
+                    <PaperPlaneRight size={16} />
+                  </Button>
+                </div>
               </div>
-
-              <Button
-                type="submit"
-                shape="square"
-                className="rounded-full h-10 w-10 flex-shrink-0"
-                disabled={pendingToolCallConfirmation || !agentInput.trim()}
-              >
-                <PaperPlaneRight size={16} />
-              </Button>
+              
+              {/* Predefined prompt buttons */}
+              <div className="flex flex-wrap gap-2 mt-3 justify-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
+                  onClick={() => {
+                    handleAgentInputChange({ target: { value: "Generate a Cloudflare Worker for me" } } as React.ChangeEvent<HTMLTextAreaElement>);
+                  }}
+                >
+                  <Code size={16} className="mr-2" />
+                  Generate Worker
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
+                  onClick={() => {
+                    handleAgentInputChange({ target: { value: "Optimize this code for performance" } } as React.ChangeEvent<HTMLTextAreaElement>);
+                  }}
+                >
+                  <Lightning size={16} className="mr-2" />
+                  Optimize Code
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
+                  onClick={() => {
+                    handleAgentInputChange({ target: { value: "Add TypeScript types to this code" } } as React.ChangeEvent<HTMLTextAreaElement>);
+                  }}
+                >
+                  <FileCode size={16} className="mr-2" />
+                  Add Types
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-neutral-100 dark:bg-neutral-900 px-3"
+                  onClick={() => {
+                    handleAgentInputChange({ target: { value: "Suggest improvements for this code" } } as React.ChangeEvent<HTMLTextAreaElement>);
+                  }}
+                >
+                  <Lightbulb size={16} className="mr-2" />
+                  Suggest Improvements
+                </Button>
+              </div>
             </div>
           </form>
         </div>
@@ -579,7 +662,7 @@ export default function Chat() {
         <div
           className={`
             h-full flex-shrink-0 flex flex-col
-            md:relative md:w-[80px] md:border-r md:border-neutral-300 md:dark:border-neutral-800
+            md:relative md:w-[80px]
             fixed top-0 right-0 z-30 w-3/4 sm:w-1/2 md:w-[80px] bg-background shadow-2xl md:shadow-none
             transform transition-transform duration-300 ease-in-out
             ${isTimelineOpen ? "translate-x-0" : "translate-x-full"}
@@ -605,35 +688,33 @@ export default function Chat() {
           />
         </div>
 
-        {/* Storage Panel */}
-        <div
-          className={`
-            h-full flex-1 flex flex-col
-            md:relative
-            fixed top-0 right-0 z-20 w-full sm:w-3/4 bg-background shadow-2xl md:shadow-none
-            transform transition-transform duration-300 ease-in-out
-            ${isStoragePanelOpen ? "translate-x-0" : "translate-x-full"}
-            md:translate-x-0
-            ${isStoragePanelOpen ? "flex" : "hidden md:flex"}
-            ${isTimelineOpen ? "md:translate-x-0" : "md:translate-x-0"} /* Adjust based on timeline state if needed */
-          `}
-          // Add logic here if timeline pushes storage panel on desktop
-        >
-          {/* Close button for mobile */}
-          <Button
-            variant="ghost"
-            size="md"
-            shape="square"
-            className="absolute top-2 right-2 rounded-full h-9 w-9 md:hidden z-30"
-            onClick={() => setIsStoragePanelOpen(false)}
-          >
-            <X size={20} />
-          </Button>
+        {/* Storage Panel - Desktop */}
+        <div className="h-full flex-1 hidden md:flex flex-col">
           <StoragePanel
             agentState={agentState}
             loading={agentStateLoading}
           />
         </div>
+        
+        {/* Storage Panel - Mobile (Drawer) */}
+        <Drawer open={isStoragePanelOpen && isMobile} onOpenChange={setIsStoragePanelOpen}>
+          <DrawerContent className="h-[85vh]">
+            <DrawerHeader>
+              <DrawerTitle>Files</DrawerTitle>
+            </DrawerHeader>
+            <ScrollArea className="flex-1 px-4">
+              <StoragePanel
+                agentState={agentState}
+                loading={agentStateLoading}
+              />
+            </ScrollArea>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button variant="secondary">Close</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
       </div>
     </div>
   );
