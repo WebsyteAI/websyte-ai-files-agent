@@ -49,35 +49,7 @@ export function AppLayout({
           {children}
         </div>
 
-        {/* Timeline Panel */}
-        <div
-          className={`
-            h-full flex-shrink-0 flex flex-col
-            md:relative md:w-[80px]
-            fixed top-0 right-0 z-30 w-3/4 sm:w-1/2 md:w-[80px] bg-background shadow-2xl md:shadow-none
-            transform transition-transform duration-300 ease-in-out
-            ${isTimelineOpen ? "translate-x-0" : "translate-x-full"}
-            md:translate-x-0
-            ${isTimelineOpen ? "flex" : "hidden md:flex"}
-          `}
-        >
-          {/* Close button for mobile */}
-          <Button
-            variant="ghost"
-            size="md"
-            shape="square"
-            className="absolute top-2 right-2 rounded-full h-9 w-9 md:hidden z-40"
-            onClick={() => setIsTimelineOpen(false)}
-          >
-            <X size={20} />
-          </Button>
-          <CommitTimeline
-            commitHistory={agentState?.commitHistory}
-            loading={commitHistoryLoading}
-            onRefresh={fetchCommitHistory}
-            onRevertToCommit={revertToCommit}
-          />
-        </div>
+        {/* Removed desktop timeline panel as it's now in a drawer */}
 
         {/* Storage Panel - Desktop */}
         <div className="h-full flex-1 hidden md:flex flex-col">
@@ -90,10 +62,35 @@ export function AppLayout({
         {/* Storage Panel - Mobile (Drawer) */}
         <Drawer open={isStoragePanelOpen && isMobile} onOpenChange={setIsStoragePanelOpen}>
           <DrawerContent className="h-[100dvh] flex flex-col">
-            <ScrollArea className="flex-1 px-4 overflow-y-auto pt-4">
+            <DrawerHeader>
+              <DrawerTitle>Storage Panel</DrawerTitle>
+            </DrawerHeader>
+            <ScrollArea className="flex-1 px-4 overflow-y-auto">
               <StoragePanel
                 agentState={agentState}
                 loading={agentStateLoading}
+              />
+            </ScrollArea>
+            <DrawerFooter className="flex-shrink-0 mt-auto">
+              <DrawerClose asChild>
+                <Button variant="secondary">Close</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+        
+        {/* Timeline Panel - Drawer (for both mobile and desktop) */}
+        <Drawer open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
+          <DrawerContent className="h-[100dvh] flex flex-col">
+            <DrawerHeader>
+              <DrawerTitle>Commit History</DrawerTitle>
+            </DrawerHeader>
+            <ScrollArea className="flex-1 px-4 overflow-y-auto">
+              <CommitTimeline
+                commitHistory={agentState?.commitHistory}
+                loading={commitHistoryLoading}
+                onRefresh={fetchCommitHistory}
+                onRevertToCommit={revertToCommit}
               />
             </ScrollArea>
             <DrawerFooter className="flex-shrink-0 mt-auto">

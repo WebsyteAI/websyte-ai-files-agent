@@ -98,7 +98,35 @@ export const createOrUpdateFile = tool({
 
       const fileExists = path in files;
 
-      // Update file
+      // Set streaming flag to true to indicate file is being created/updated
+      // This will show a streaming indicator in the UI
+      if (fileExists) {
+        // Update existing file with streaming flag
+        files[path] = {
+          ...files[path],
+          streaming: true,
+        };
+      } else {
+        // Create new file with streaming flag
+        files[path] = {
+          content: "Creating file...",
+          created: now,
+          modified: now,
+          streaming: true,
+        };
+      }
+
+      // Update state to show streaming status
+      await agent.setState({
+        ...agent.state,
+        files,
+      });
+
+      // Simulate a delay to show streaming status in UI
+      // This makes the streaming indicator visible to the user
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Update file with actual content
       if (fileExists) {
         // Update existing file (preserve creation date, update modified date)
         files[path] = {
@@ -117,7 +145,7 @@ export const createOrUpdateFile = tool({
         };
       }
 
-      // Update state
+      // Update state with final content
       await agent.setState({
         ...agent.state,
         files,

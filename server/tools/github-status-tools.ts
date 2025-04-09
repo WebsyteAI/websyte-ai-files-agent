@@ -1,0 +1,401 @@
+/**
+ * GitHub status tools for the AI chat agent
+ * Handles status and commit history operations for GitHub repositories
+ */
+import { tool } from "ai";
+import { z } from "zod";
+import { agentContext } from "../agent";
+import type { GitHubBuildStatus } from "../types";
+
+/**
+ * Tool to get GitHub build status for the configured repository
+ */
+export const getGitHubBuildStatus = tool({
+  description:
+    "Get build status information for the configured GitHub repository commit or branch.",
+  parameters: z.object({
+    ref: z.string().describe("Git reference (commit SHA, branch name, or tag)"),
+    updateAgentState: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        "Whether to update the agent state with the build status information"
+      ),
+  }),
+  execute: async ({ ref, updateAgentState = false }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+        };
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      console.log(`Getting build status for ${owner}/${repo}@${ref}`);
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+
+      // Get combined status for the reference
+      const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/status`;
+      console.log(`Fetching status from: ${statusUrl}`);
+
+      const statusResponse = await fetch(statusUrl, {
+        method: "GET",
+        headers,
+      });
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error(
+          `GitHub API error (${statusResponse.status}): ${errorText}`
+        );
+        return {
+          success: false,
+          message: `Failed to get build status: ${statusResponse.status}. Details: ${errorText}`,
+        };
+      }
+
+      const statusData = await statusResponse.json();
+
+      // Get check runs for the reference (more detailed information)
+      const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
+      console.log(`Fetching check runs from: ${checksUrl}`);
+
+      // Add v3 checks API header
+      const checksHeaders = {
+        ...headers,
+        Accept: "application/vnd.github.v3+json",
+      };
+
+      const checksResponse = await fetch(checksUrl, {
+        method: "GET",
+        headers: checksHeaders,
+      });
+
+      let checksData = null;
+      if (checksResponse.ok) {
+        checksData = await checksResponse.json();
+      } else {
+        console.warn(`Could not fetch check runs: ${checksResponse.status}`);
+      }
+
+      // Combine status and checks data
+      const buildStatus: GitHubBuildStatus = {
+        state: statusData.state,
+        statuses: statusData.statuses || [],
+      };
+
+      if (checksData && checksData.check_runs) {
+        buildStatus.check_runs = checksData.check_runs.map((run: any) => ({
+          name: run.name,
+          status: run.status,
+          conclusion: run.conclusion,
+          started_at: run.started_at,
+          completed_at: run.completed_at,
+          html_url: run.html_url,
+          app: {
+            name: run.app.name,
+          },
+        }));
+      }
+
+      // Update agent state if requested
+      if (updateAgentState) {
+        try {
+          const agent = agentContext.getStore();
+          if (!agent) {
+            console.warn("Agent context not found, cannot update state");
+          } else {
+            const currentState = agent.state || {};
+
+            // Create a new state object with the build status
+            await agent.setState({
+              ...currentState,
+              buildStatus: {
+                repository: `${owner}/${repo}`,
+                ref,
+                status: buildStatus,
+                timestamp: new Date().toISOString(),
+              },
+            });
+
+            console.log("Updated agent state with build status information");
+          }
+        } catch (stateError) {
+          console.error("Error updating agent state:", stateError);
+        }
+      }
+
+      // Prepare a human-readable summary
+      const summary = {
+        repository: `${owner}/${repo}`,
+        ref,
+        state: buildStatus.state,
+        statusCount: buildStatus.statuses.length,
+        checkRunsCount: buildStatus.check_runs?.length || 0,
+        failedStatuses: buildStatus.statuses.filter(
+          (s) => s.state !== "success"
+        ).length,
+        failedCheckRuns:
+          buildStatus.check_runs?.filter(
+            (c) => c.conclusion !== "success" && c.status === "completed"
+          ).length || 0,
+        pendingCheckRuns:
+          buildStatus.check_runs?.filter((c) => c.status !== "completed")
+            .length || 0,
+      };
+
+      return {
+        success: true,
+        message: `Successfully retrieved build status for ${owner}/${repo}@${ref}`,
+        summary,
+        buildStatus,
+      };
+    } catch (error) {
+      console.error("Error getting GitHub build status:", error);
+      return {
+        success: false,
+        message: `Error getting GitHub build status: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+/**
+ * Tool to get commit history from the configured GitHub repository
+ */
+export const getCommitHistory = tool({
+  description:
+    "Get commit history for the configured GitHub repository branch.",
+  parameters: z.object({
+    branch: z
+      .string()
+      .optional()
+      .describe(
+        "Branch to get history for (default: uses branch from agent state)"
+      ),
+    perPage: z
+      .number()
+      .optional()
+      .default(10)
+      .describe("Number of commits to fetch per page (default: 10)"),
+    page: z
+      .number()
+      .optional()
+      .default(1)
+      .describe("Page number for pagination (default: 1)"),
+    includeBuildStatus: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Whether to include build status for each commit"),
+    updateAgentState: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Whether to update the agent state with the commit history"),
+  }),
+  execute: async ({
+    branch: inputBranch, // Renamed to avoid conflict
+    perPage = 10,
+    page = 1,
+    includeBuildStatus = true,
+    updateAgentState = true,
+  }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+      const stateBranch = github?.branch; // Branch from state
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+      // Use input branch if provided, otherwise use branch from state, default to 'main' if neither exists
+      const branch = inputBranch || stateBranch || "main";
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+        };
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      console.log(`Getting commit history for ${owner}/${repo}/${branch}`);
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+
+      // Get commits for the branch
+      const commitsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits?sha=${branch}&per_page=${perPage}&page=${page}`;
+      console.log(`Fetching commits from: ${commitsUrl}`);
+
+      const commitsResponse = await fetch(commitsUrl, {
+        method: "GET",
+        headers,
+      });
+
+      if (!commitsResponse.ok) {
+        const errorText = await commitsResponse.text();
+        console.error(
+          `GitHub API error (${commitsResponse.status}): ${errorText}`
+        );
+        return {
+          success: false,
+          message: `Failed to get commit history: ${commitsResponse.status}. Details: ${errorText}`,
+        };
+      }
+
+      const commits = await commitsResponse.json();
+
+      // If includeBuildStatus is true, fetch build status for each commit
+      if (includeBuildStatus) {
+        console.log(`Fetching build status for ${commits.length} commits`);
+
+        // Add build status to each commit
+        for (const commit of commits) {
+          try {
+            // Get combined status for the commit
+            const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${commit.sha}/status`;
+            console.log(
+              `Fetching status for commit ${commit.sha.substring(0, 7)} from: ${statusUrl}`
+            );
+
+            const statusResponse = await fetch(statusUrl, {
+              method: "GET",
+              headers,
+            });
+
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              commit.status = {
+                state: statusData.state,
+                total_count: statusData.total_count,
+                statuses: statusData.statuses,
+              };
+            } else {
+              console.warn(
+                `Could not fetch status for commit ${commit.sha}: ${statusResponse.status}`
+              );
+              commit.status = { state: "pending" };
+            }
+
+            // Add a small delay to avoid rate limiting
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          } catch (statusError) {
+            console.error(
+              `Error fetching status for commit ${commit.sha}:`,
+              statusError
+            );
+            commit.status = { state: "pending" };
+          }
+        }
+      }
+
+      // Update agent state if requested
+      if (updateAgentState) {
+        try {
+          const agent = agentContext.getStore();
+          if (!agent) {
+            console.warn("Agent context not found, cannot update state");
+          } else {
+            const currentState = agent.state || {};
+
+            // Create a new state object with the commit history
+            await agent.setState({
+              ...currentState,
+              commitHistory: {
+                repository: `${owner}/${repo}`,
+                branch,
+                commits,
+                timestamp: new Date().toISOString(),
+              },
+            });
+
+            console.log("Updated agent state with commit history information");
+          }
+        } catch (stateError) {
+          console.error("Error updating agent state:", stateError);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Successfully retrieved ${commits.length} commits from ${owner}/${repo}/${branch}`,
+        commits,
+      };
+    } catch (error) {
+      console.error("Error getting GitHub commit history:", error);
+      return {
+        success: false,
+        message: `Error getting GitHub commit history: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+// Export all GitHub status tools
+export const githubStatusTools = {
+  getGitHubBuildStatus,
+  getCommitHistory,
+};
