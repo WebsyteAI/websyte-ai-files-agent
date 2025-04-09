@@ -216,21 +216,28 @@ export default function Chat() {
         throw new Error(errorData.message || 'Failed to revert to commit');
       }
       
-      // Refresh commit history after successful revert
-      fetchCommitHistory();
+      // No automatic refresh after revert - user will use agent to refresh if needed
     } catch (error) {
       console.error("Error reverting to commit:", error);
     }
   };
 
-  // Fetch commit history when agentName is available and files exist
+  // Fetch commit history only once when the app loads and agent state is ready
   useEffect(() => {
-    // Check if agentName exists and files are present before fetching
-    if (agentState?.agentName && !commitHistoryLoading && agentState?.files && Object.keys(agentState.files).length > 0 && !agentState?.commitHistory) {
-      fetchCommitHistory();
+    // Only run this effect once when agentState is first loaded
+    if (agentState && !agentState.initialCommitHistoryFetched && !commitHistoryLoading) {
+      // Set a flag to prevent this effect from running again
+      agent.setState({
+        ...agentState,
+        initialCommitHistoryFetched: true
+      });
+      
+      // We'll fetch commit history only if there are files
+      if (agentState.files && Object.keys(agentState.files).length > 0) {
+        fetchCommitHistory();
+      }
     }
-    // Depend on agentName to ensure repo name is ready for the API call
-  }, [agentState?.agentName, agentState?.files, agentState?.commitHistory, commitHistoryLoading]);
+  }, [agentState, commitHistoryLoading, agent]);
 
   return (
     <AppLayout
