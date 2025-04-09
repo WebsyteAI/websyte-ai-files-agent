@@ -93,6 +93,8 @@ IMPORTANT: ALWAYS include the following files in your implementation:
 
 These files are REQUIRED for any Cloudflare Workers project and should be created even if not explicitly requested by the user.
 
+NEVER include comments in json files especially package.json.
+
 Once deployed, the application will be accessible at: https://${agentName}.websyte.ai/
 Make sure to communicate this URL to the user when discussing deployment.
 

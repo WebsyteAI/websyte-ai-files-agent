@@ -213,10 +213,6 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
     }));
   };
   
-  // Check if any files are currently streaming
-  const hasStreamingFiles = agentState?.files && 
-    Object.values(agentState.files).some(file => file.streaming);
-  
   // Count the number of files
   const fileCount = agentState?.files ? Object.keys(agentState.files).length : 0;
   
@@ -340,12 +336,7 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
               <ArrowsHorizontal size={20} />
             </Button>
           )}
-          {hasStreamingFiles && (
-            <div className="flex items-center text-[#F48120] mr-2">
-              <ArrowClockwise size={18} className="animate-spin mr-1" />
-              <span className="text-sm">Streaming...</span>
-            </div>
-          )}
+          {/* Removed streaming status indicator */}
           
           <div className="flex items-center gap-2">
             <Button
@@ -404,7 +395,7 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
                 {Object.entries(agentState.files).map(([path, fileData]) => (
                   <div key={path} className="border-b border-neutral-300 dark:border-neutral-800">
                     <div 
-                      className={`px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer ${fileData.streaming ? 'bg-[#F48120]/10' : ''}`}
+                      className="px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer"
                       onClick={() => toggleFileExpansion(path)}
                     >
                       <div className="flex items-center">
@@ -426,12 +417,7 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
                             <Copy size={16} />
                           )}
                         </button>
-                        {fileData.streaming && (
-                          <div className="flex items-center text-[#F48120]">
-                            <ArrowClockwise size={16} className="animate-spin mr-1" />
-                            <span className="text-sm">Streaming</span>
-                          </div>
-                        )}
+                        {/* Removed streaming indicator */}
                       </div>
                     </div>
                     {expandedFiles[path] && (
