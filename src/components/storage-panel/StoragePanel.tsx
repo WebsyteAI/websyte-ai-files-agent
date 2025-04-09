@@ -168,7 +168,7 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
           tool: 'getGitHubBuildStatus',
           params: {
             owner: 'WebsyteAI', // Default organization
-            repo: 'wai-1',      // Default repository
+            repo: 'websyte-ai-worker-starter',      // Default repository
             ref: 'main',        // Default branch
             updateAgentState: true, // Update agent state with build status
           }

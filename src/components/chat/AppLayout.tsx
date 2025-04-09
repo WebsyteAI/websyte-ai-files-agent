@@ -3,7 +3,7 @@ import { X } from "@phosphor-icons/react";
 import { Button } from "@/components/button/Button";
 import { StoragePanel } from "@/components/storage-panel/StoragePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
-import { ScrollArea } from "@/components/scroll-area/ScrollArea";
+import { ScrollArea } from "@/components/scroll-area";
 import {
   Drawer,
   DrawerClose,
@@ -65,11 +65,13 @@ export function AppLayout({
             <DrawerHeader>
               <DrawerTitle>Storage Panel</DrawerTitle>
             </DrawerHeader>
-            <ScrollArea className="flex-1 px-4 overflow-y-auto">
+            <ScrollArea className="h-full">
+              <div className="px-4">
               <StoragePanel
                 agentState={agentState}
                 loading={agentStateLoading}
               />
+              </div>
             </ScrollArea>
             <DrawerFooter className="flex-shrink-0 mt-auto">
               <DrawerClose asChild>
@@ -85,13 +87,15 @@ export function AppLayout({
             <DrawerHeader>
               <DrawerTitle>Commit History</DrawerTitle>
             </DrawerHeader>
-            <ScrollArea className="flex-1 px-4 overflow-y-auto">
+            <ScrollArea className="h-full">
+              <div className="px-4">
               <CommitTimeline
                 commitHistory={agentState?.commitHistory}
                 loading={commitHistoryLoading}
                 onRefresh={fetchCommitHistory}
                 onRevertToCommit={revertToCommit}
               />
+              </div>
             </ScrollArea>
             <DrawerFooter className="flex-shrink-0 mt-auto">
               <DrawerClose asChild>

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
-import { ScrollArea } from "@/components/scroll-area/ScrollArea";
+import { ScrollArea } from "@/components/scroll-area";
 import { 
   Tooltip,
   TooltipContent,
@@ -116,10 +116,11 @@ export function ChatMessages({
   };
 
   return (
-    <ScrollArea className="flex-1 p-4 space-y-4">
-      {messages.length === 0 ? (
-        <WelcomeCard />
-      ) : (
+    <ScrollArea className="h-full">
+      <div className="p-4 space-y-4">
+        {messages.length === 0 ? (
+          <WelcomeCard />
+        ) : (
         messages.map((m: Message, index) => {
           const isUser = m.role === "user";
           const showAvatar =
@@ -297,8 +298,9 @@ export function ChatMessages({
             </div>
           );
         })
-      )}
-      <div ref={messagesEndRef} />
+        )}
+        <div ref={messagesEndRef} />
+      </div>
     </ScrollArea>
   );
 }

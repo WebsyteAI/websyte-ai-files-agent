@@ -715,9 +715,116 @@ export const revertToCommit = tool({
   },
 });
 
+/**
+ * Tool to delete a file from GitHub
+ */
+export const deleteFileFromGitHub = tool({
+  description: "Delete a file from the configured GitHub repository",
+  parameters: z.object({
+    path: z.string().describe("Path to the file to delete"),
+    commitMessage: z.string().describe("Commit message for the deletion"),
+  }),
+  execute: async ({ path, commitMessage }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      if (!github || !github.owner || !github.branch) {
+        return "GitHub configuration (owner, branch) not found in agent state.";
+      }
+      const owner = github.owner;
+      const repo = currentState.agentName; // Use agentName as repo name
+      const branch = github.branch;
+
+      if (!repo) {
+        return "Agent name (used as repository name) not found in agent state.";
+      }
+
+      console.log(`Deleting file from GitHub: ${owner}/${repo}/${branch}/${path}`);
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return "GitHub token not provided and GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.";
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "Content-Type": "application/json",
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+
+      // First, get the file to check if it exists and get its SHA
+      const fileUrl = `${apiBaseUrl}/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+      console.log(`Checking if file exists: ${fileUrl}`);
+
+      const fileResponse = await fetch(fileUrl, {
+        method: "GET",
+        headers,
+      });
+
+      if (!fileResponse.ok) {
+        const errorText = await fileResponse.text();
+        console.error(`GitHub API error (${fileResponse.status}): ${errorText}`);
+        return `File not found or cannot be accessed: ${path}. Status: ${fileResponse.status}`;
+      }
+
+      const fileData = await fileResponse.json();
+      const fileSha = fileData.sha;
+
+      // Delete the file using the GitHub API
+      console.log(`Deleting file ${path} with SHA: ${fileSha}`);
+      const deleteResponse = await fetch(fileUrl, {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({
+          message: commitMessage,
+          sha: fileSha,
+          branch: branch,
+        }),
+      });
+
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error(`GitHub API error (${deleteResponse.status}): ${errorText}`);
+        return `Failed to delete file: ${deleteResponse.status}. Details: ${errorText}`;
+      }
+
+      // Also remove the file from agent state if it exists there
+      if (currentState.files && currentState.files[path]) {
+        const updatedFiles = { ...currentState.files };
+        delete updatedFiles[path];
+        
+        await agent.setState({
+          ...currentState,
+          files: updatedFiles,
+        });
+        
+        console.log(`Removed file ${path} from agent state`);
+      }
+
+      return `Successfully deleted file ${path} from GitHub repository ${owner}/${repo} on branch ${branch}.`;
+    } catch (error) {
+      console.error("Error deleting file from GitHub:", error);
+      return `Error deleting file from GitHub: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+});
+
 // Export all GitHub file tools
 export const githubFileTools = {
   publishToGitHub,
   syncFromGitHub,
   revertToCommit,
+  deleteFileFromGitHub,
 };
