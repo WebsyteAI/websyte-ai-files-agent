@@ -134,24 +134,26 @@ export function ChatMessages({
                   {JSON.stringify(m, null, 2)}
                 </pre>
               )}
-              <div
-                className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`flex gap-2 max-w-[85%] ${
-                    isUser ? "flex-row-reverse" : "flex-row"
-                  }`}
-                >
-                  {showAvatar && !isUser ? (
+              <div>
+                {/* Show avatar for AI messages */}
+                {showAvatar && !isUser && (
+                  <div className="flex justify-start mb-2">
                     <Avatar username={"AI"} />
-                  ) : (
-                    !isUser && <div className="w-8" />
-                  )}
-
-                  <div>
+                  </div>
+                )}
+                
+                {/* Message content */}
+                <div
+                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`${isUser ? "max-w-[85%]" : "w-full"}`}>
                     <div>
                       {m.parts?.map((part, i) => {
                         if (part.type === "text") {
+                          if (!part.text) {
+                            return null; // Skip scheduled messages
+                          }
+
                           return (
                             <div key={i}>
                               <Card
@@ -289,6 +291,7 @@ export function ChatMessages({
                           // For all other tool invocations (including those in progress or completed)
                           return <ToolMessage key={i} toolInvocation={toolInvocation} addToolResult={addToolResult} />;
                         }
+
                         return null;
                       })}
                     </div>

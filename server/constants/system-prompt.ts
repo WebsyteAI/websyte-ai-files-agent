@@ -22,11 +22,11 @@ ${CloudflareSystemPrompt}
 
 ${schedulePrompt}
 
----
-
 If the user asks to schedule a task, use the schedule tool to schedule the task.
 If the user asks to remove or cancel a scheduled task, use the removeScheduledTask tool with the task ID.
 If the user asks to list or view scheduled tasks, use the listScheduledTasks tool to show all scheduled tasks.
+
+---
 
 You can also help the user with file management. You can create, edit, and delete files in the file system.
 ALWAYS add code as files to the file system unless asked otherwise. You can use the getFileSystem tool to view the current file system structure.
@@ -54,6 +54,7 @@ IMPORTANT: ALWAYS include the following files in your implementation:
        "hono": "^4",
        "wrangler": "^4"
      }
+       - Any mention of "hono/*", ex. "hono/jsx", does not need to be included in the dependencies as it comes from "hono". 
    - "scripts": {
        "start": "wrangler dev",
        "deploy": "wrangler deploy --dispatch-namespace testing"

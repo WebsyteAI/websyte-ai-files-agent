@@ -3,69 +3,8 @@ import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
 import { Input } from "@/components/input/Input";
 import { Label } from "@/components/label/Label";
-import { FolderOpen, ArrowClockwise, CaretDown, CaretRight, ArrowsHorizontal, GithubLogo, Copy, Check } from "@phosphor-icons/react";
-import { EditorView, basicSetup } from "codemirror";
-import { EditorState } from "@codemirror/state";
-import { javascript } from "@codemirror/lang-javascript";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
-import { oneDark } from "@codemirror/theme-one-dark";
-
-// CodeMirror component
-interface CodeEditorProps {
-  code: string;
-  filename: string;
-}
-
-function CodeEditor({ code, filename }: CodeEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  
-  useEffect(() => {
-    if (!editorRef.current) return;
-    
-    // Clean up previous editor instance
-    if (viewRef.current) {
-      viewRef.current.destroy();
-    }
-    
-    // Determine language based on file extension
-    const extension = filename.split('.').pop()?.toLowerCase() || '';
-    let lang = javascript();
-    
-    if (extension === 'html' || extension === 'htm') {
-      lang = html();
-    } else if (extension === 'css') {
-      lang = css();
-    }
-    
-    // Create editor state
-    const state = EditorState.create({
-      doc: code,
-      extensions: [
-        basicSetup,
-        lang,
-        oneDark,
-        EditorView.editable.of(false), // Read-only mode
-        EditorView.lineWrapping,
-      ],
-    });
-    
-    // Create editor view
-    const view = new EditorView({
-      state,
-      parent: editorRef.current,
-    });
-    
-    viewRef.current = view;
-    
-    return () => {
-      view.destroy();
-    };
-  }, [code, filename]);
-  
-  return <div ref={editorRef} className="w-full h-full text-xs md:text-sm" />;
-}
+import { FolderOpen, ArrowClockwise, ArrowsHorizontal, GithubLogo, Check } from "@phosphor-icons/react";
+import { FileContentsViewer } from "@/components/file-contents-viewer/FileContentsViewer";
 
 // Define the file structure
 interface FileData {
@@ -215,21 +154,6 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
   
   // Count the number of files
   const fileCount = agentState?.files ? Object.keys(agentState.files).length : 0;
-  
-  // Copy file content to clipboard
-  const copyFileContent = async (path: string, content: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedFile(path);
-      
-      // Reset copied status after 2 seconds
-      setTimeout(() => {
-        setCopiedFile(null);
-      }, 2000);
-    } catch (error) {
-      console.error("Failed to copy file content:", error);
-    }
-  };
 
   
   // Get status color based on state
@@ -391,51 +315,11 @@ export function StoragePanel({ agentState, loading, onToggle }: StoragePanelProp
         ) : (
           <div>
             {agentState?.files && Object.keys(agentState.files).length > 0 ? (
-              <div>
-                {Object.entries(agentState.files).map(([path, fileData]) => (
-                  <div key={path} className="border-b border-neutral-300 dark:border-neutral-800">
-                    <div 
-                      className="px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer"
-                      onClick={() => toggleFileExpansion(path)}
-                    >
-                      <div className="flex items-center">
-                        {expandedFiles[path] ? <CaretDown size={16} className="mr-2 text-white" /> : <CaretRight size={16} className="mr-2 text-white" />}
-                        <span className="text-white">{path}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyFileContent(path, fileData.content);
-                          }}
-                          title="Copy file content"
-                        >
-                          {copiedFile === path ? (
-                            <Check size={16} className="text-green-500" />
-                          ) : (
-                            <Copy size={16} />
-                          )}
-                        </button>
-                        {/* Removed streaming indicator */}
-                      </div>
-                    </div>
-                    {expandedFiles[path] && (
-                      <>
-                        <div className="px-0">
-                          <div className="code-editor bg-neutral-50 dark:bg-neutral-900 overflow-auto border border-neutral-200 dark:border-neutral-800 rounded-sm text-xs md:text-sm">
-                            <CodeEditor code={fileData.content} filename={path} />
-                          </div>
-                        </div>
-                        <div className="px-4 py-2 text-sm text-neutral-500 border-t border-neutral-300 dark:border-neutral-800">
-                          <div>Created: {new Date(fileData.created).toLocaleString()}</div>
-                          <div>Modified: {new Date(fileData.modified).toLocaleString()}</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <FileContentsViewer 
+                files={agentState.files}
+                expandedFiles={expandedFiles}
+                toggleFileExpansion={toggleFileExpansion}
+              />
             ) : (
               <div className="text-center text-neutral-500 p-4 text-base">
                 No files available
