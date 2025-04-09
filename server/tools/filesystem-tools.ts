@@ -84,12 +84,8 @@ export const createOrUpdateFile = tool({
       .string()
       .describe("File path (e.g., 'src/index.ts', 'wrangler.jsonc')"),
     content: z.string().describe("File content"),
-    stream: z
-      .boolean()
-      .optional()
-      .describe("Whether to stream the content (default: false)"),
   }),
-  execute: async ({ path, content, stream = false }) => {
+  execute: async ({ path, content }) => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
@@ -102,138 +98,24 @@ export const createOrUpdateFile = tool({
 
       const fileExists = path in files;
 
-      if (stream) {
-        // Start streaming mode - initialize with empty content
+      // Update file
+      if (fileExists) {
+        // Update existing file (preserve creation date, update modified date)
         files[path] = {
-          content: "",
-          created: fileExists ? files[path].created : now,
+          ...files[path],
+          content,
           modified: now,
-          streaming: true,
+          streaming: false,
         };
-
-        // Update state to initialize streaming
-        await agent.setState({
-          ...agent.state,
-          files,
-        });
-
-        // Start streaming content in chunks
-        const chunkSize = 50; // Characters per chunk
-        for (let i = 0; i < content.length; i += chunkSize) {
-          const chunk = content.substring(i, i + chunkSize);
-
-          // Get latest state to ensure we're appending to the most current content
-          const latestState = agent.state || {};
-          const latestFiles = { ...(latestState.files || {}) };
-
-          if (latestFiles[path]) {
-            // Append chunk to existing content
-            latestFiles[path] = {
-              ...latestFiles[path],
-              content: latestFiles[path].content + chunk,
-              modified: new Date().toISOString(),
-            };
-
-            // Update state with new chunk
-            await agent.setState({
-              ...agent.state,
-              files: latestFiles,
-            });
-
-            // Small delay to simulate streaming and allow UI to update
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
-        }
-
-        // Finalize streaming
-        const finalState = agent.state || {};
-        const finalFiles = { ...(finalState.files || {}) };
-
-        if (finalFiles[path]) {
-          finalFiles[path] = {
-            ...finalFiles[path],
-            streaming: false,
-            modified: new Date().toISOString(),
-          };
-
-          // Update state to mark streaming as complete
-          await agent.setState({
-            ...agent.state,
-            files: finalFiles,
-          });
-        }
-
-        return `File '${path}' has been ${fileExists ? "updated" : "created"} with streaming successfully.`;
       } else {
-        // Regular non-streaming update
-        if (fileExists) {
-          // Update existing file (preserve creation date, update modified date)
-          files[path] = {
-            ...files[path],
-            content,
-            modified: now,
-            streaming: false,
-          };
-        } else {
-          // Create new file
-          files[path] = {
-            content,
-            created: now,
-            modified: now,
-            streaming: false,
-          };
-        }
-
-        // Update state
-        await agent.setState({
-          ...agent.state,
-          files,
-        });
-
-        return `File '${path}' has been ${fileExists ? "updated" : "created"} successfully.`;
+        // Create new file
+        files[path] = {
+          content,
+          created: now,
+          modified: now,
+          streaming: false,
+        };
       }
-    } catch (error) {
-      console.error(`Error creating/updating file '${path}':`, error);
-      return `Error creating/updating file: ${error}`;
-    }
-  },
-});
-
-/**
- * Tool to append a chunk to a streaming file
- */
-export const streamFileChunk = tool({
-  description: "Append a chunk of content to a streaming file",
-  parameters: z.object({
-    path: z.string().describe("File path of the streaming file"),
-    chunk: z.string().describe("Content chunk to append"),
-    isComplete: z
-      .boolean()
-      .optional()
-      .describe("Whether this is the final chunk (default: false)"),
-  }),
-  execute: async ({ path, chunk, isComplete = false }) => {
-    try {
-      const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-
-      const currentState = agent.state || {};
-      const files = { ...(currentState.files || {}) };
-
-      // Check if file exists and is in streaming mode
-      if (!files[path]) {
-        return `Error: File '${path}' does not exist.`;
-      }
-
-      // Append chunk to existing content
-      files[path] = {
-        ...files[path],
-        content: files[path].content + chunk,
-        modified: new Date().toISOString(),
-        streaming: !isComplete,
-      };
 
       // Update state
       await agent.setState({
@@ -241,12 +123,10 @@ export const streamFileChunk = tool({
         files,
       });
 
-      return isComplete
-        ? `File '${path}' streaming completed successfully.`
-        : `Chunk appended to '${path}' successfully.`;
+      return `File '${path}' has been ${fileExists ? "updated" : "created"} successfully.`;
     } catch (error) {
-      console.error(`Error streaming chunk to file '${path}':`, error);
-      return `Error streaming chunk: ${error}`;
+      console.error(`Error creating/updating file '${path}':`, error);
+      return `Error creating/updating file: ${error}`;
     }
   },
 });
@@ -296,6 +176,5 @@ export const filesystemTools = {
   getFileSystem,
   setFiles,
   createOrUpdateFile,
-  streamFileChunk,
   deleteFile,
 };
