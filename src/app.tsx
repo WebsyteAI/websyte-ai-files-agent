@@ -61,23 +61,18 @@ export default function Chat() {
   }, [scrollToBottom]);
 
 
-  // Generate or get worker ID from query params and update URL if needed
+  // Get worker ID from query params - required parameter
   const [workerId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('worker');
     
-    // If valid worker ID exists in URL, use it
-    if (idParam?.startsWith('wai-')) {
-      return idParam;
+    // Worker ID is required
+    if (!idParam) {
+      // Display error message if worker ID is missing
+      throw new Error('Worker ID is required. Please provide a ?worker=YOUR_WORKER_ID parameter in the URL.');
     }
     
-    // Otherwise generate a new one and update URL
-    // Create a shorter ID by taking first 8 chars of UUID
-    const newId = `wai-${crypto.randomUUID().split('-')[0]}`;
-    const url = new URL(window.location.href);
-    url.searchParams.set('worker', newId);
-    window.history.replaceState({}, '', url);
-    return newId;
+    return idParam;
   });
 
   // Update useAgent hook to include name and onStateUpdate
