@@ -71,11 +71,6 @@ export function ChatInput({
         
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2 mt-3 justify-center">
-          {isLoading && (
-            <div className="w-full text-center text-xs text-muted-foreground mb-1">
-              Processing your message...
-            </div>
-          )}
           <Button
             variant="ghost"
             size="sm"
