@@ -8,13 +8,15 @@ interface ChatInputProps {
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (e: FormEvent, options?: any) => void;
   pendingToolCallConfirmation: boolean;
+  isLoading?: boolean;
 }
 
 export function ChatInput({
   input,
   handleInputChange,
   handleSubmit,
-  pendingToolCallConfirmation
+  pendingToolCallConfirmation,
+  isLoading = false
 }: ChatInputProps) {
   return (
     <form
@@ -32,10 +34,12 @@ export function ChatInput({
       <div className="mx-auto max-w-3xl">
         <div className="relative rounded-2xl shadow-md bg-neutral-100 dark:bg-neutral-900">
           <Textarea
-            disabled={pendingToolCallConfirmation}
+            disabled={pendingToolCallConfirmation || isLoading}
             placeholder={
               pendingToolCallConfirmation
                 ? "Please respond to the tool confirmation above..."
+                : isLoading
+                ? "Processing your message..."
                 : "Ask anything..."
             }
             className="pl-4 pr-12 py-3 w-full rounded-2xl max-h-[200px] overflow-y-auto min-h-[70px] bg-transparent border-none focus:ring-0 focus:outline-none"
@@ -54,15 +58,24 @@ export function ChatInput({
               type="submit"
               shape="square"
               className="rounded-full h-8 w-8 flex-shrink-0 bg-[#F48120] hover:bg-[#F48120]/90 text-white"
-              disabled={pendingToolCallConfirmation || !input.trim()}
+              disabled={pendingToolCallConfirmation || !input.trim() || isLoading}
             >
-              <PaperPlaneRight size={16} />
+              {isLoading ? (
+                <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+              ) : (
+                <PaperPlaneRight size={16} />
+              )}
             </Button>
           </div>
         </div>
         
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2 mt-3 justify-center">
+          {isLoading && (
+            <div className="w-full text-center text-xs text-muted-foreground mb-1">
+              Processing your message...
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"

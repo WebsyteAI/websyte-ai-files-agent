@@ -86,6 +86,8 @@ export default function Chat() {
     },
   });
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const {
     messages: agentMessages,
     input: agentInput,
@@ -93,6 +95,7 @@ export default function Chat() {
     handleSubmit: handleAgentSubmit,
     addToolResult,
     clearHistory,
+    isLoading
   } = useAgentChat({
     agent,
     maxSteps: 10,
@@ -260,13 +263,23 @@ export default function Chat() {
         showDebug={showDebug}
         addToolResult={addToolResult}
         messagesEndRef={messagesEndRef}
+        isLoading={isProcessing || isLoading}
       />
       
       <ChatInput
         input={agentInput}
         handleInputChange={handleAgentInputChange}
-        handleSubmit={handleAgentSubmit}
+        handleSubmit={(e, options) => {
+          setIsProcessing(true);
+          // Use setTimeout to ensure isProcessing is set to false after the message is processed
+          handleAgentSubmit(e, options);
+          // Set a timeout to turn off the loading state after a short delay
+          setTimeout(() => {
+            setIsProcessing(false);
+          }, 500);
+        }}
         pendingToolCallConfirmation={pendingToolCallConfirmation}
+        isLoading={isProcessing || isLoading}
       />
     </AppLayout>
   );

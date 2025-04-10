@@ -25,12 +25,38 @@ export function CodeEditor({ code, filename }: CodeEditorProps) {
     
     // Determine language based on file extension
     const extension = filename.split('.').pop()?.toLowerCase() || '';
-    let lang = javascript();
+    let lang;
     
     if (extension === 'html' || extension === 'htm') {
       lang = html();
     } else if (extension === 'css') {
       lang = css();
+    } else if (extension === 'tsx') {
+      // TypeScript with JSX support
+      lang = javascript({ typescript: true, jsx: true });
+    } else if (extension === 'jsx') {
+      // JavaScript with JSX support
+      lang = javascript({ jsx: true });
+    } else if (extension === 'ts') {
+      // TypeScript support
+      // Check if the content likely contains JSX
+      const containsJSX = code.includes('React') || 
+                          code.includes('jsx') || 
+                          code.includes('</>') || 
+                          /\<[A-Z][A-Za-z]*/.test(code); // Matches React component tags
+      
+      lang = javascript({ typescript: true, jsx: containsJSX });
+    } else if (extension === 'js') {
+      // Check if the content likely contains JSX (React components)
+      const containsJSX = code.includes('React') || 
+                          code.includes('jsx') || 
+                          code.includes('</>') || 
+                          /\<[A-Z][A-Za-z]*/.test(code); // Matches React component tags
+      
+      lang = javascript({ jsx: containsJSX });
+    } else {
+      // Default to JavaScript
+      lang = javascript();
     }
     
     // Create editor state

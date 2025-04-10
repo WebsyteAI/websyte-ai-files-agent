@@ -102,13 +102,15 @@ interface ChatMessagesProps {
   showDebug: boolean;
   addToolResult: (result: { toolCallId: string; result: string }) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  isLoading?: boolean;
 }
 
 export function ChatMessages({ 
   messages, 
   showDebug, 
   addToolResult,
-  messagesEndRef
+  messagesEndRef,
+  isLoading = false
 }: ChatMessagesProps) {
   // Format time to a readable format
   const formatTime = (date: Date) => {
@@ -138,7 +140,7 @@ export function ChatMessages({
                 {/* Show avatar for AI messages */}
                 {showAvatar && !isUser && (
                   <div className="flex justify-start mb-2">
-                    <Avatar username={"AI"} />
+                    <Avatar image="https://r2.websyte.ai/websyte-ai/websyte-48x48.png" username={"AI"} />
                   </div>
                 )}
                 
@@ -301,6 +303,16 @@ export function ChatMessages({
             </div>
           );
         })
+        )}
+        {isLoading && (
+          <div className="flex items-center justify-center my-4">
+            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 px-4 py-2 rounded-full">
+              <div className="h-3 w-3 rounded-full bg-[#F48120] opacity-75 animate-pulse"></div>
+              <div className="h-3 w-3 rounded-full bg-[#F48120] opacity-75 animate-pulse delay-150"></div>
+              <div className="h-3 w-3 rounded-full bg-[#F48120] opacity-75 animate-pulse delay-300"></div>
+              <span className="text-xs text-muted-foreground ml-1">Agent is thinking...</span>
+            </div>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
