@@ -394,8 +394,256 @@ export const getCommitHistory = tool({
   },
 });
 
+/**
+ * Tool to get build logs for a failed GitHub check run
+ */
+export const getGitHubBuildLogs = tool({
+  description:
+    "Get the build logs for a failed GitHub check run to diagnose build failures.",
+  parameters: z.object({
+    ref: z.string().describe("Git reference (commit SHA, branch name, or tag)"),
+    checkRunId: z
+      .string()
+      .optional()
+      .describe(
+        "Specific check run ID to get logs for. If not provided, will get logs for the first failed check run."
+      ),
+    updateAgentState: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        "Whether to update the agent state with the build logs information"
+      ),
+  }),
+  execute: async ({ ref, checkRunId, updateAgentState = false }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+        };
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+
+      let targetCheckRunId = checkRunId;
+
+      // If no specific check run ID is provided, find the first failed check run
+      if (!targetCheckRunId) {
+        console.log(`Finding failed check runs for ${owner}/${repo}@${ref}`);
+
+        // Get check runs for the reference
+        const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
+        console.log(`Fetching check runs from: ${checksUrl}`);
+
+        const checksHeaders = {
+          ...headers,
+          Accept: "application/vnd.github.v3+json",
+        };
+
+        const checksResponse = await fetch(checksUrl, {
+          method: "GET",
+          headers: checksHeaders,
+        });
+
+        if (!checksResponse.ok) {
+          const errorText = await checksResponse.text();
+          console.error(
+            `GitHub API error (${checksResponse.status}): ${errorText}`
+          );
+          return {
+            success: false,
+            message: `Failed to get check runs: ${checksResponse.status}. Details: ${errorText}`,
+          };
+        }
+
+        const checksData = await checksResponse.json();
+
+        // Find the first failed check run
+        const failedCheckRun = checksData.check_runs?.find(
+          (run: any) =>
+            run.conclusion === "failure" && run.status === "completed"
+        );
+
+        if (!failedCheckRun) {
+          return {
+            success: false,
+            message: `No failed check runs found for ${owner}/${repo}@${ref}`,
+          };
+        }
+
+        targetCheckRunId = failedCheckRun.id;
+        console.log(`Found failed check run: ${failedCheckRun.name} (${targetCheckRunId})`);
+      }
+
+      // Get logs for the check run
+      console.log(`Getting logs for check run ${targetCheckRunId}`);
+
+      // GitHub API endpoint for check run logs
+      const logsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/check-runs/${targetCheckRunId}/logs`;
+      console.log(`Fetching logs from: ${logsUrl}`);
+
+      const logsResponse = await fetch(logsUrl, {
+        method: "GET",
+        headers: {
+          ...headers,
+          Accept: "application/vnd.github.v3.raw", // Request raw logs
+        },
+        redirect: "follow", // Follow redirects
+      });
+
+      // GitHub might return a redirect to download the logs
+      if (logsResponse.status === 302 || logsResponse.status === 307) {
+        const redirectUrl = logsResponse.headers.get("location");
+        if (!redirectUrl) {
+          return {
+            success: false,
+            message: "Received redirect response but no location header",
+          };
+        }
+
+        console.log(`Redirected to: ${redirectUrl}`);
+
+        // Fetch the logs from the redirect URL
+        const redirectResponse = await fetch(redirectUrl);
+        if (!redirectResponse.ok) {
+          return {
+            success: false,
+            message: `Failed to fetch logs from redirect URL: ${redirectResponse.status}`,
+          };
+        }
+
+        const logs = await redirectResponse.text();
+
+        // Update agent state if requested
+        if (updateAgentState) {
+          try {
+            const agent = agentContext.getStore();
+            if (!agent) {
+              console.warn("Agent context not found, cannot update state");
+            } else {
+              const currentState = agent.state || {};
+
+              // Create a new state object with the build logs
+              await agent.setState({
+                ...currentState,
+                buildLogs: {
+                  repository: `${owner}/${repo}`,
+                  ref,
+                  checkRunId: String(targetCheckRunId),
+                  logs,
+                  timestamp: new Date().toISOString(),
+                },
+              });
+
+              console.log("Updated agent state with build logs information");
+            }
+          } catch (stateError) {
+            console.error("Error updating agent state:", stateError);
+          }
+        }
+
+        return {
+          success: true,
+          message: `Successfully retrieved logs for check run ${targetCheckRunId}`,
+          logs,
+        };
+      } else if (logsResponse.ok) {
+        // Direct response with logs
+        const logs = await logsResponse.text();
+
+        // Update agent state if requested
+        if (updateAgentState) {
+          try {
+            const agent = agentContext.getStore();
+            if (!agent) {
+              console.warn("Agent context not found, cannot update state");
+            } else {
+              const currentState = agent.state || {};
+
+              // Create a new state object with the build logs
+              await agent.setState({
+                ...currentState,
+                buildLogs: {
+                  repository: `${owner}/${repo}`,
+                  ref,
+                  checkRunId: String(targetCheckRunId),
+                  logs,
+                  timestamp: new Date().toISOString(),
+                },
+              });
+
+              console.log("Updated agent state with build logs information");
+            }
+          } catch (stateError) {
+            console.error("Error updating agent state:", stateError);
+          }
+        }
+
+        return {
+          success: true,
+          message: `Successfully retrieved logs for check run ${targetCheckRunId}`,
+          logs,
+        };
+      } else {
+        // Error response
+        const errorText = await logsResponse.text();
+        console.error(
+          `GitHub API error (${logsResponse.status}): ${errorText}`
+        );
+        return {
+          success: false,
+          message: `Failed to get logs: ${logsResponse.status}. Details: ${errorText}`,
+        };
+      }
+    } catch (error) {
+      console.error("Error getting GitHub build logs:", error);
+      return {
+        success: false,
+        message: `Error getting GitHub build logs: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
 // Export all GitHub status tools
 export const githubStatusTools = {
   getGitHubBuildStatus,
   getCommitHistory,
+  getGitHubBuildLogs,
 };

@@ -75,6 +75,13 @@ export interface AgentState {
     status: GitHubBuildStatus;
     timestamp: string;
   };
+  buildLogs?: {
+    repository: string;
+    ref: string;
+    checkRunId: string;
+    logs: string;
+    timestamp: string;
+  };
   commitHistory?: {
     repository: string;
     branch: string;

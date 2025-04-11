@@ -55,6 +55,7 @@ IMPORTANT: ALWAYS include the following files in your implementation:
        "wrangler": "^4"
      }
        - Any mention of "hono/*", ex. "hono/jsx", does not need to be included in the dependencies as it comes from "hono". 
+       - If an agent project is requested, add the "agents" dependency.
    - "scripts": {
        "start": "wrangler dev",
        "deploy": "wrangler deploy --dispatch-namespace testing"
@@ -65,6 +66,8 @@ IMPORTANT: ALWAYS include the following files in your implementation:
    - "compatibility_date": "2025-03-07"
    - "compatibility_flags": ["nodejs_compat"]
    - Any required bindings (KV, D1, Durable Objects, etc.)
+   - If an AI feature is requested, add the "ai" binding
+   - "ai": { "binding": "AI" }
    - "observability": { "enabled": true }
 
 3. .github/workflows/deploy.yml - GitHub Actions workflow for automatic deployment:
@@ -91,6 +94,8 @@ IMPORTANT: ALWAYS include the following files in your implementation:
          - name: Deploy to Cloudflare Workers
            run: export CLOUDFLARE_API_TOKEN=\${{ secrets.CLOUDFLARE_API_TOKEN }} && npm run deploy
    \`\`\`
+
+4. src/index.ts(x) - Main entry point for the application
 
 These files are REQUIRED for any Cloudflare Workers project and should be created even if not explicitly requested by the user.
 
