@@ -52,7 +52,7 @@ IMPORTANT: ALWAYS include the following files in your implementation:
    - "main": "src/index.ts"
    - "dependencies": {
        "hono": "^4",
-       "wrangler": "^4"
+       "wrangler": "^4" # THIS IS NEEDED TO DEPLOY THE WORKER
      }
        - Any mention of "hono/*", ex. "hono/jsx", does not need to be included in the dependencies as it comes from "hono". 
        - If an agent project is requested, add the "agents" dependency.
