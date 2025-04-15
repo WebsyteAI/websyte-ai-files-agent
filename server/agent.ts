@@ -15,7 +15,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { generateSystemPrompt } from "./constants/system-prompt";
 import type { AgentState } from "./types";
 
-const model = openai("gpt-4o-2024-11-20");
+const model = openai("gpt-4.1");
 // Cloudflare AI Gateway
 // const openai = createOpenAI({
 //   apiKey: env.OPENAI_API_KEY,
