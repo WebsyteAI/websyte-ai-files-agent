@@ -60,8 +60,6 @@ export class Chat extends AIChatAgent<Env, AgentState> {
       );
     }
 
-    console.log('init state', this.state);
-
     // Update agent state with the agentName if it's not already set
     if (!this.state.agentName) {
       await this.setState({
@@ -69,8 +67,6 @@ export class Chat extends AIChatAgent<Env, AgentState> {
         agentName,
       });
     }
-
-    console.log('init state', this.state);
 
     // Continue with normal request processing
     return await super.onRequest(request);
