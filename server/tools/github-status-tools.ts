@@ -5,6 +5,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { agentContext } from "../agent";
+import { GitHubModule } from "../agents/GitHubModule";
 import type { GitHubBuildStatus } from "../types";
 
 /**
@@ -24,175 +25,10 @@ export const getGitHubBuildStatus = tool({
       ),
   }),
   execute: async ({ ref, updateAgentState = false }) => {
-    try {
-      const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-
-      // Get GitHub configuration and agent name from agent state
-      const currentState = agent.state || {};
-      const github = currentState.github;
-      const owner = github?.owner;
-      const repo = currentState.agentName;
-
-      if (!owner) {
-        return {
-          success: false,
-          message: "GitHub owner not configured in agent state.",
-        };
-      }
-      if (!repo) {
-        return {
-          success: false,
-          message: "Agent name (repository name) not found in agent state.",
-        };
-      }
-
-      // Get token from environment
-      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-      if (!authToken) {
-        return {
-          success: false,
-          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
-        };
-      }
-
-      // Setup common headers for GitHub API requests
-      const headers = {
-        Accept: "application/vnd.github.v3+json",
-        Authorization: `token ${authToken}`,
-        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
-      };
-
-      console.log(`Getting build status for ${owner}/${repo}@${ref}`);
-
-      // Base URL for GitHub API
-      const apiBaseUrl = "https://api.github.com";
-
-      // Get combined status for the reference
-      const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/status`;
-      console.log(`Fetching status from: ${statusUrl}`);
-
-      const statusResponse = await fetch(statusUrl, {
-        method: "GET",
-        headers,
-      });
-
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text();
-        console.error(
-          `GitHub API error (${statusResponse.status}): ${errorText}`
-        );
-        return {
-          success: false,
-          message: `Failed to get build status: ${statusResponse.status}. Details: ${errorText}`,
-        };
-      }
-
-      const statusData = await statusResponse.json();
-
-      // Get check runs for the reference (more detailed information)
-      const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
-      console.log(`Fetching check runs from: ${checksUrl}`);
-
-      // Add v3 checks API header
-      const checksHeaders = {
-        ...headers,
-        Accept: "application/vnd.github.v3+json",
-      };
-
-      const checksResponse = await fetch(checksUrl, {
-        method: "GET",
-        headers: checksHeaders,
-      });
-
-      let checksData = null;
-      if (checksResponse.ok) {
-        checksData = await checksResponse.json();
-      } else {
-        console.warn(`Could not fetch check runs: ${checksResponse.status}`);
-      }
-
-      // Combine status and checks data
-      const buildStatus: GitHubBuildStatus = {
-        state: statusData.state,
-        statuses: statusData.statuses || [],
-      };
-
-      if (checksData && checksData.check_runs) {
-        buildStatus.check_runs = checksData.check_runs.map((run: any) => ({
-          name: run.name,
-          status: run.status,
-          conclusion: run.conclusion,
-          started_at: run.started_at,
-          completed_at: run.completed_at,
-          html_url: run.html_url,
-          app: {
-            name: run.app.name,
-          },
-        }));
-      }
-
-      // Update agent state if requested
-      if (updateAgentState) {
-        try {
-          const agent = agentContext.getStore();
-          if (!agent) {
-            console.warn("Agent context not found, cannot update state");
-          } else {
-            const currentState = agent.state || {};
-
-            // Create a new state object with the build status
-            await agent.setState({
-              ...currentState,
-              buildStatus: {
-                repository: `${owner}/${repo}`,
-                ref,
-                status: buildStatus,
-                timestamp: new Date().toISOString(),
-              },
-            });
-
-            console.log("Updated agent state with build status information");
-          }
-        } catch (stateError) {
-          console.error("Error updating agent state:", stateError);
-        }
-      }
-
-      // Prepare a human-readable summary
-      const summary = {
-        repository: `${owner}/${repo}`,
-        ref,
-        state: buildStatus.state,
-        statusCount: buildStatus.statuses.length,
-        checkRunsCount: buildStatus.check_runs?.length || 0,
-        failedStatuses: buildStatus.statuses.filter(
-          (s) => s.state !== "success"
-        ).length,
-        failedCheckRuns:
-          buildStatus.check_runs?.filter(
-            (c) => c.conclusion !== "success" && c.status === "completed"
-          ).length || 0,
-        pendingCheckRuns:
-          buildStatus.check_runs?.filter((c) => c.status !== "completed")
-            .length || 0,
-      };
-
-      return {
-        success: true,
-        message: `Successfully retrieved build status for ${owner}/${repo}@${ref}`,
-        summary,
-        buildStatus,
-      };
-    } catch (error) {
-      console.error("Error getting GitHub build status:", error);
-      return {
-        success: false,
-        message: `Error getting GitHub build status: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
+    const agent = agentContext.getStore();
+    if (!agent) throw new Error("Agent context not found");
+    const github = new GitHubModule(agent.state);
+    return await github.getBuildStatus(ref, updateAgentState);
   },
 });
 

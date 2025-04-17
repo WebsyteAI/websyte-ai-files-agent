@@ -18,6 +18,8 @@ export const FileSchema = z.object({
     .describe("Whether the file is currently being streamed"),
 });
 
+import { FilesystemModule } from "../agents/FilesystemModule";
+
 /**
  * Tool to get the file system
  */
@@ -27,13 +29,10 @@ export const getFileSystem = tool({
   execute: async () => {
     try {
       const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-      // Access state using agent.state
-      const currentState = agent.state || {};
-      const agentFileSystem = currentState.files || {};
-      console.log("Retrieved file system from agent state:", agentFileSystem);
+      if (!agent) throw new Error("Agent context not found");
+      const fs = new FilesystemModule(agent.state);
+      const agentFileSystem = fs.getFileSystem();
+
       return JSON.stringify(agentFileSystem);
     } catch (error) {
       console.error("Error getting file system from agent state:", error);
@@ -53,18 +52,15 @@ export const setFiles = tool({
       .describe("Object with file paths as keys and file data as values"),
   }),
   execute: async ({ files }) => {
-    console.log("setFiles called with:", files);
     try {
       const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-      // Update state using agent.setState
+      if (!agent) throw new Error("Agent context not found");
+      const fs = new FilesystemModule(agent.state);
+      fs.setFiles(files);
       await agent.setState({
         ...agent.state,
         files,
       });
-      console.log("Agent file system state updated successfully.");
       return "Agent file system state updated successfully";
     } catch (error) {
       console.error("Error setting agent file system state:", error);
@@ -88,40 +84,14 @@ export const createOrUpdateFile = tool({
   execute: async ({ path, content }) => {
     try {
       const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-
-      const currentState = agent.state || {};
-      const files = { ...(currentState.files || {}) };
-      const now = new Date().toISOString();
-
-      const fileExists = path in files;
-
-      // Update file with actual content
-      if (fileExists) {
-        // Update existing file (preserve creation date, update modified date)
-        files[path] = {
-          ...files[path],
-          content,
-          modified: now,
-        };
-      } else {
-        // Create new file
-        files[path] = {
-          content,
-          created: now,
-          modified: now,
-        };
-      }
-
-      // Update state with final content
+      if (!agent) throw new Error("Agent context not found");
+      const fs = new FilesystemModule(agent.state);
+      const op = fs.createOrUpdateFile(path, content);
       await agent.setState({
         ...agent.state,
-        files,
+        files: fs.getFileSystem(),
       });
-
-      return `File '${path}' has been ${fileExists ? "updated" : "created"} successfully.`;
+      return `File '${path}' has been ${op} successfully.`;
     } catch (error) {
       console.error(`Error creating/updating file '${path}':`, error);
       return `Error creating/updating file: ${error}`;
@@ -140,27 +110,16 @@ export const deleteFile = tool({
   execute: async ({ path }) => {
     try {
       const agent = agentContext.getStore();
-      if (!agent) {
-        throw new Error("Agent context not found");
-      }
-
-      const currentState = agent.state || {};
-      const files = { ...(currentState.files || {}) };
-
-      // Check if file exists
-      if (!files[path]) {
-        return `File '${path}' does not exist.`;
-      }
-
-      // Delete file
-      delete files[path];
-
-      // Update state
+      if (!agent) throw new Error("Agent context not found");
+      const fs = new FilesystemModule(agent.state);
+      const deleted = fs.deleteFile(path);
       await agent.setState({
         ...agent.state,
-        files,
+        files: fs.getFileSystem(),
       });
-
+      if (!deleted) {
+        return `File '${path}' does not exist.`;
+      }
       return `File '${path}' has been deleted successfully.`;
     } catch (error) {
       console.error(`Error deleting file '${path}':`, error);

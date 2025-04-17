@@ -138,3 +138,11 @@ export interface ToolExecutionResponse {
   content?: any; // Changed from string to any to support complex return types
   message?: string;
 }
+
+/**
+ * Agent environment type
+ * Extend this as needed to include bindings, secrets, etc.
+ */
+export interface Env {
+  // Add environment bindings here as needed
+}
