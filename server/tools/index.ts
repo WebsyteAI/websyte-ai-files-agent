@@ -8,6 +8,7 @@ import { githubTools } from "./github-tools";
 import { scheduleTools } from "./schedule-tools";
 import { secretsTools } from "./secrets-tools";
 import { testEndpoint } from "./network-tools"; // Import network tools
+import { getCloudflareWorkerBindings } from "./cloudflare-bindings-tool";
 
 // Combine all tools into a single object
 export const tools = {
@@ -15,6 +16,7 @@ export const tools = {
   ...filesystemTools,
   ...githubTools,
   testEndpoint, // Add network tool correctly
+  getCloudflareWorkerBindings,
   ...scheduleTools,
   ...secretsTools,
 };
@@ -31,3 +33,4 @@ export { githubTools } from "./github-tools";
 export { scheduleTools } from "./schedule-tools";
 export { secretsTools } from "./secrets-tools";
 export { testEndpoint } from "./network-tools"; // Export network tool correctly
+export { getCloudflareWorkerBindings } from "./cloudflare-bindings-tool";
