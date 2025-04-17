@@ -81,6 +81,19 @@ The following files are **required** for any Cloudflare Workers project:
   // Add required bindings (KV, D1, Durable Objects, etc.)
   // If AI features are needed:
   // "ai": { "binding": "AI" },
+  // If using Agents:
+  "durable_objects": {
+    "bindings": [
+      { "name": "SOME_AGENT_NAME", "class_name": "SomeAgentName" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SomeAgentName"] }
+  ],
+  // If using workflows:
+  "workflows": [
+    { "name": "SOME_WORKFLOW_NAME", "class_name": "SomeWorkflowName" }
+  ],
   "observability": { "enabled": true }
 }
 \`\`\`
