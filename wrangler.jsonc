@@ -20,7 +20,16 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["Chat"]
+      "new_sqlite_classes": [
+        "Chat"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "workflow-agent-demo",
+      "binding": "EXAMPLE_WORKFLOW",
+      "class_name": "ExampleWorkflow"
     }
   ],
   "vars": {
