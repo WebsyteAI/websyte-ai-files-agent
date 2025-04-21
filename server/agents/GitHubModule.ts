@@ -2,21 +2,20 @@
 import type { AgentState } from "../types";
 
 export class GitHubModule {
-  state: AgentState;
+  agent: any;
 
-  constructor(state: AgentState) {
-    this.state = state;
+  constructor(agentContext: any) {
+    this.agent = agentContext;
   }
 
   async publishFiles(commitMessage: string) {
-    // Ported from publishToGitHub tool
-    const files = this.state.files || {};
-    const github = this.state.github;
+    const files = this.agent.state.files || {};
+    const github = this.agent.state.github;
     if (!github || !github.owner || !github.branch) {
       return "GitHub configuration (owner, branch) not found in agent state.";
     }
     const owner = github.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     const branch = github.branch;
     if (!repo) {
       return "Agent name (used as repository name) not found in agent state.";
@@ -40,7 +39,6 @@ export class GitHubModule {
     let branchExists = true;
     let defaultBranch;
     try {
-      // Get repository info
       const repoResponse = await fetch(
         `${apiBaseUrl}/repos/${owner}/${repo}`,
         { method: "GET", headers }
@@ -54,7 +52,6 @@ export class GitHubModule {
       const repoData = await repoResponse.json();
       defaultBranch = repoData.default_branch;
       try {
-        // Try to get the branch reference
         const refResponse = await fetch(
           `${apiBaseUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`,
           { method: "GET", headers }
@@ -67,7 +64,6 @@ export class GitHubModule {
         }
         const refData = await refResponse.json();
         baseCommitSha = refData.object.sha;
-        // Get the base tree
         const commitResponse = await fetch(
           `${apiBaseUrl}/repos/${owner}/${repo}/git/commits/${baseCommitSha}`,
           { method: "GET", headers }
@@ -81,9 +77,7 @@ export class GitHubModule {
         const baseCommit = await commitResponse.json();
         baseTreeSha = baseCommit.tree.sha;
       } catch {
-        // Branch doesn't exist, use the default branch as base
         branchExists = false;
-        // Get the SHA of the default branch
         const defaultBranchResponse = await fetch(
           `${apiBaseUrl}/repos/${owner}/${repo}/git/refs/heads/${defaultBranch}`,
           { method: "GET", headers }
@@ -96,7 +90,6 @@ export class GitHubModule {
         }
         const defaultBranchData = await defaultBranchResponse.json();
         baseCommitSha = defaultBranchData.object.sha;
-        // Get the base tree
         const baseCommitResponse = await fetch(
           `${apiBaseUrl}/repos/${owner}/${repo}/git/commits/${baseCommitSha}`,
           { method: "GET", headers }
@@ -113,7 +106,6 @@ export class GitHubModule {
     } catch (error) {
       return `Error: Could not get repository information. Make sure the repository exists and you have access to it.`;
     }
-    // Create blobs for each file
     const fileBlobs = await Promise.all(
       Object.entries(files).map(async ([path, fileData]) => {
         const blobResponse = await fetch(
@@ -122,7 +114,7 @@ export class GitHubModule {
             method: "POST",
             headers,
             body: JSON.stringify({
-              content: fileData.content,
+              content: (fileData as any).content,
               encoding: "utf-8",
             }),
           }
@@ -142,7 +134,6 @@ export class GitHubModule {
         };
       })
     );
-    // Create a new tree with the file blobs
     const treeResponse = await fetch(
       `${apiBaseUrl}/repos/${owner}/${repo}/git/trees`,
       {
@@ -161,7 +152,6 @@ export class GitHubModule {
       );
     }
     const newTree = await treeResponse.json();
-    // Create a new commit
     const commitResponse = await fetch(
       `${apiBaseUrl}/repos/${owner}/${repo}/git/commits`,
       {
@@ -181,9 +171,7 @@ export class GitHubModule {
       );
     }
     const newCommit = await commitResponse.json();
-    // Create or update the branch reference
     if (branchExists) {
-      // Update existing branch
       const updateRefResponse = await fetch(
         `${apiBaseUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`,
         {
@@ -202,7 +190,6 @@ export class GitHubModule {
         );
       }
     } else {
-      // Create new branch
       const createRefResponse = await fetch(
         `${apiBaseUrl}/repos/${owner}/${repo}/git/refs`,
         {
@@ -225,13 +212,14 @@ export class GitHubModule {
   }
 
   async syncFiles(path: string = "") {
-    // Ported from syncFromGitHub tool
-    const github = this.state.github;
+    const agent = this.agent;
+    if (!agent) throw new Error("Agent context not found");
+    const github = this.agent.state.github;
     if (!github || !github.owner || !github.branch) {
       return "GitHub configuration (owner, branch) not found in agent state.";
     }
     const owner = github.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     const branch = github.branch;
     if (!repo) {
       return "Agent name (used as repository name) not found in agent state.";
@@ -246,8 +234,7 @@ export class GitHubModule {
       "User-Agent": "WebsyteAI-Agent",
     };
     const apiBaseUrl = "https://api.github.com";
-    // Function to recursively fetch files from a directory
-    const fetchDirectoryContents = async (repoPath = "") => {
+    const fetchDirectoryContents = async (repoPath = ""): Promise<Record<string, any>> => {
       const encodedPath = repoPath ? encodeURIComponent(repoPath) : "";
       const url = `${apiBaseUrl}/repos/${owner}/${repo}/contents/${encodedPath}?ref=${branch}`;
       const response = await fetch(url, { method: "GET", headers });
@@ -259,7 +246,7 @@ export class GitHubModule {
       }
       const contents = await response.json();
       if (Array.isArray(contents)) {
-        let files = {};
+        let files: Record<string, any> = {};
         for (const item of contents) {
           if (item.type === "file") {
             const fileResponse = await fetch(item.url, { method: "GET", headers });
@@ -279,7 +266,6 @@ export class GitHubModule {
         }
         return files;
       } else {
-        // Single file response
         const content = Buffer.from(contents.content, "base64").toString("utf-8");
         return {
           [contents.path]: {
@@ -291,21 +277,21 @@ export class GitHubModule {
         };
       }
     };
-    // Start fetching from the specified path or root
     const syncedFiles = await fetchDirectoryContents(path);
     if (Object.keys(syncedFiles).length === 0) {
       return `No files found in ${owner}/${repo}/${branch}${path ? `/${path}` : ""}.`;
     }
-    // Update agent state with the synced files
-    this.state.files = syncedFiles;
+    await this.agent.setState({
+      ...this.agent.state,
+      files: syncedFiles,
+    });
     return `Successfully synced ${Object.keys(syncedFiles).length} files from GitHub repository ${owner}/${repo} on branch ${branch}.`;
   }
 
   async revertToCommit(commitSha: string) {
-    // Ported from revertToCommit tool
-    const github = this.state.github;
+    const github = this.agent.state.github;
     const owner = github?.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     if (!owner) {
       return {
         success: false,
@@ -331,7 +317,6 @@ export class GitHubModule {
       "User-Agent": "WebsyteAI-Agent",
     };
     const apiBaseUrl = "https://api.github.com";
-    // First, get the commit to verify it exists
     const commitUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${commitSha}`;
     const commitResponse = await fetch(commitUrl, { method: "GET", headers });
     if (!commitResponse.ok) {
@@ -341,10 +326,8 @@ export class GitHubModule {
         message: `Failed to get commit: ${commitResponse.status}. Details: ${errorText}`,
       };
     }
-    // Get the commit tree
     const commit = await commitResponse.json();
     const treeSha = commit.commit.tree.sha;
-    // Get the tree with recursive=1 to get all files
     const treeUrl = `${apiBaseUrl}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`;
     const treeResponse = await fetch(treeUrl, { method: "GET", headers });
     if (!treeResponse.ok) {
@@ -355,16 +338,13 @@ export class GitHubModule {
       };
     }
     const tree = await treeResponse.json();
-    // Process each file in the tree
     const files: Record<string, any> = {};
     for (const item of tree.tree) {
       if (item.type === "blob") {
-        // Get the file content
         const contentUrl = `${apiBaseUrl}/repos/${owner}/${repo}/git/blobs/${item.sha}`;
         const contentResponse = await fetch(contentUrl, { method: "GET", headers });
         if (!contentResponse.ok) continue;
         const content = await contentResponse.json();
-        // GitHub returns base64 encoded content
         const decodedContent = Buffer.from(content.content, "base64").toString("utf-8");
         files[item.path] = {
           content: decodedContent,
@@ -380,8 +360,10 @@ export class GitHubModule {
         message: `No files found in commit ${commitSha}.`,
       };
     }
-    // Update agent state with the files from this commit
-    this.state.files = files;
+    await this.agent.setState({
+      ...this.agent.state,
+      files,
+    });
     return {
       success: true,
       message: `Successfully reverted to commit ${commitSha} with ${Object.keys(files).length} files.`,
@@ -395,13 +377,12 @@ export class GitHubModule {
   }
 
   async deleteFile(path: string, commitMessage: string) {
-    // Ported from deleteFileFromGitHub tool
-    const github = this.state.github;
+    const github = this.agent.state.github;
     if (!github || !github.owner || !github.branch) {
       return "GitHub configuration (owner, branch) not found in agent state.";
     }
     const owner = github.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     const branch = github.branch;
     if (!repo) {
       return "Agent name (used as repository name) not found in agent state.";
@@ -417,7 +398,6 @@ export class GitHubModule {
       "User-Agent": "WebsyteAI-Agent",
     };
     const apiBaseUrl = "https://api.github.com";
-    // First, get the file to check if it exists and get its SHA
     const fileUrl = `${apiBaseUrl}/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
     const fileResponse = await fetch(fileUrl, { method: "GET", headers });
     if (!fileResponse.ok) {
@@ -426,7 +406,6 @@ export class GitHubModule {
     }
     const fileData = await fileResponse.json();
     const fileSha = fileData.sha;
-    // Delete the file using the GitHub API
     const deleteResponse = await fetch(fileUrl, {
       method: "DELETE",
       headers,
@@ -440,11 +419,13 @@ export class GitHubModule {
       const errorText = await deleteResponse.text();
       return `Failed to delete file: ${deleteResponse.status}. Details: ${errorText}`;
     }
-    // Also remove the file from agent state if it exists there
-    if (this.state.files && this.state.files[path]) {
-      const updatedFiles = { ...this.state.files };
+    if (this.agent.state.files && this.agent.state.files[path]) {
+      const updatedFiles = { ...this.agent.state.files };
       delete updatedFiles[path];
-      this.state.files = updatedFiles;
+      await this.agent.setState({
+        ...this.agent.state,
+        files: updatedFiles,
+      });
     }
     return `Successfully deleted file ${path} from GitHub repository ${owner}/${repo} on branch ${branch}.`;
   }
@@ -458,9 +439,9 @@ export class GitHubModule {
     private?: boolean;
     autoInit?: boolean;
   }) {
-    const github = this.state.github;
+    const github = this.agent.state.github;
     const owner = github?.owner;
-    const name = this.state.agentName;
+    const name = this.agent.state.agentName;
     if (!owner) {
       return { success: false, message: "GitHub owner not configured in agent state." };
     }
@@ -512,9 +493,9 @@ export class GitHubModule {
   }
 
   async checkRepository() {
-    const github = this.state.github;
+    const github = this.agent.state.github;
     const owner = github?.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     if (!owner) {
       return { exists: false, message: "GitHub owner not configured in agent state." };
     }
@@ -578,10 +559,9 @@ export class GitHubModule {
   }
 
   async getBuildStatus(ref: string, updateAgentState: boolean = false) {
-    // Ported from getGitHubBuildStatus tool
-    const github = this.state.github;
+    const github = this.agent.state.github;
     const owner = github?.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     if (!owner) {
       return {
         success: false,
@@ -607,7 +587,6 @@ export class GitHubModule {
       "User-Agent": "WebsyteAI-Agent",
     };
     const apiBaseUrl = "https://api.github.com";
-    // Get combined status for the reference
     const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/status`;
     const statusResponse = await fetch(statusUrl, { method: "GET", headers });
     if (!statusResponse.ok) {
@@ -618,7 +597,6 @@ export class GitHubModule {
       };
     }
     const statusData = await statusResponse.json();
-    // Get check runs for the reference (more detailed information)
     const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
     const checksHeaders = { ...headers, Accept: "application/vnd.github.v3+json" };
     const checksResponse = await fetch(checksUrl, { method: "GET", headers: checksHeaders });
@@ -626,7 +604,6 @@ export class GitHubModule {
     if (checksResponse.ok) {
       checksData = await checksResponse.json();
     }
-    // Combine status and checks data
     const buildStatus: any = {
       state: statusData.state,
       statuses: statusData.statuses || [],
@@ -642,16 +619,17 @@ export class GitHubModule {
         app: { name: run.app.name },
       }));
     }
-    // Update agent state if requested
     if (updateAgentState) {
-      this.state.buildStatus = {
-        repository: `${owner}/${repo}`,
-        ref,
-        status: buildStatus,
-        timestamp: new Date().toISOString(),
-      };
+      await this.agent.setState({
+        ...this.agent.state,
+        buildStatus: {
+          repository: `${owner}/${repo}`,
+          ref,
+          status: buildStatus,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
-    // Prepare a human-readable summary
     const summary = {
       repository: `${owner}/${repo}`,
       ref,
@@ -679,10 +657,9 @@ export class GitHubModule {
     includeBuildStatus: boolean = true,
     updateAgentState: boolean = true
   ) {
-    // Ported from getCommitHistory tool
-    const github = this.state.github;
+    const github = this.agent.state.github;
     const owner = github?.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     const stateBranch = github?.branch;
     if (!owner) {
       return {
@@ -696,7 +673,6 @@ export class GitHubModule {
         message: "Agent name (repository name) not found in agent state.",
       };
     }
-    // Use input branch if provided, otherwise use branch from state, default to 'main' if neither exists
     const branchName = branch || stateBranch || "main";
     const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
     if (!authToken) {
@@ -711,7 +687,6 @@ export class GitHubModule {
       "User-Agent": "WebsyteAI-Agent",
     };
     const apiBaseUrl = "https://api.github.com";
-    // Get commits for the branch
     const commitsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits?sha=${branchName}&per_page=${perPage}&page=${page}`;
     const commitsResponse = await fetch(commitsUrl, { method: "GET", headers });
     if (!commitsResponse.ok) {
@@ -722,11 +697,9 @@ export class GitHubModule {
       };
     }
     const commits = await commitsResponse.json();
-    // If includeBuildStatus is true, fetch build status for each commit
     if (includeBuildStatus) {
       for (const commit of commits) {
         try {
-          // Get combined status for the commit
           const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${commit.sha}/status`;
           const statusResponse = await fetch(statusUrl, { method: "GET", headers });
           if (statusResponse.ok) {
@@ -739,21 +712,22 @@ export class GitHubModule {
           } else {
             commit.status = { state: "pending" };
           }
-          // Add a small delay to avoid rate limiting
           await new Promise((resolve) => setTimeout(resolve, 100));
         } catch {
           commit.status = { state: "pending" };
         }
       }
     }
-    // Update agent state if requested
     if (updateAgentState) {
-      this.state.commitHistory = {
-        repository: `${owner}/${repo}`,
-        branch: branchName,
-        commits,
-        timestamp: new Date().toISOString(),
-      };
+      await this.agent.setState({
+        ...this.agent.state,
+        commitHistory: {
+          repository: `${owner}/${repo}`,
+          branch: branchName,
+          commits,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
     return {
       success: true,
@@ -763,10 +737,9 @@ export class GitHubModule {
   }
 
   async getBuildLogs(ref: string, checkRunId?: string, updateAgentState: boolean = false) {
-    // Ported from getGitHubBuildLogs tool
-    const github = this.state.github;
+    const github = this.agent.state.github;
     const owner = github?.owner;
-    const repo = this.state.agentName;
+    const repo = this.agent.state.agentName;
     if (!owner) {
       return {
         success: false,
@@ -793,9 +766,7 @@ export class GitHubModule {
     };
     const apiBaseUrl = "https://api.github.com";
     let targetCheckRunId = checkRunId;
-    // If no specific check run ID is provided, find the first failed check run
     if (!targetCheckRunId) {
-      // Get check runs for the reference
       const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
       const checksHeaders = { ...headers, Accept: "application/vnd.github.v3+json" };
       const checksResponse = await fetch(checksUrl, { method: "GET", headers: checksHeaders });
@@ -807,7 +778,6 @@ export class GitHubModule {
         };
       }
       const checksData = await checksResponse.json();
-      // Find the first failed check run
       const failedCheckRun = checksData.check_runs?.find(
         (run: any) => run.conclusion === "failure" && run.status === "completed"
       );
@@ -819,8 +789,6 @@ export class GitHubModule {
       }
       targetCheckRunId = failedCheckRun.id;
     }
-    // Get logs for the check run
-    // GitHub API endpoint for check run logs
     const logsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/check-runs/${targetCheckRunId}/logs`;
     const logsResponse = await fetch(logsUrl, {
       method: "GET",
@@ -856,13 +824,16 @@ export class GitHubModule {
     }
     // Update agent state if requested
     if (updateAgentState) {
-      this.state.buildLogs = {
-        repository: `${owner}/${repo}`,
-        ref,
-        checkRunId: String(targetCheckRunId),
-        logs,
-        timestamp: new Date().toISOString(),
-      };
+      await this.agent.setState({
+        ...this.agent.state,
+        buildLogs: {
+          repository: `${owner}/${repo}`,
+          ref,
+          checkRunId: String(targetCheckRunId),
+          logs,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
     return {
       success: true,

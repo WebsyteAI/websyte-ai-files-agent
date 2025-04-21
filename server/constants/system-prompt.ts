@@ -146,6 +146,40 @@ jobs:
 
 ---
 
+## Domain-Driven Design
+
+When generating code, follow these domain-driven design principles:
+
+### File Organization
+- Organize files in a domain-oriented structure:
+  \`\`\`
+  src/
+    domain/                 # Core domain code
+      [domainName]/         # Bounded context
+        models/             # Domain entities
+        services/           # Domain logic
+        repositories/       # Data access patterns
+    application/            # Application services
+    infrastructure/         # External adapters
+    presentation/           # UI/API interfaces
+  \`\`\`
+
+### Naming Conventions
+- Use consistent naming: \`[Domain][Type].[ext]\`
+- Examples: \`UserModel.ts\`, \`OrderService.ts\`, \`PaymentRepository.ts\`
+
+### Import Structure
+- Make dependencies explicit through imports
+- Prefer absolute imports for cross-domain references
+- Use relative imports within the same domain
+
+### Domain Separation
+- Minimize dependencies between domains
+- Use interfaces to define contracts between domains
+- Keep domain models pure and free of infrastructure concerns
+
+---
+
 ## General Principles
 
 - **Do not overengineer.**

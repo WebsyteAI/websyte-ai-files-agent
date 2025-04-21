@@ -6,7 +6,6 @@ import { tool } from "ai";
 import { z } from "zod";
 import { agentContext } from "../agent";
 import { GitHubModule } from "../agents/GitHubModule";
-import type { FileRecord, GitHubContent, GitHubDirectoryItem, GitHubFileContent } from "../types";
 
 /**
  * Tool to publish files to GitHub
@@ -19,7 +18,7 @@ export const publishToGitHub = tool({
   execute: async ({ commitMessage }) => {
     const agent = agentContext.getStore();
     if (!agent) throw new Error("Agent context not found");
-    const github = new GitHubModule(agent.state);
+    const github = new GitHubModule(agent);
     return await github.publishFiles(commitMessage);
   },
 });
@@ -41,7 +40,7 @@ export const syncFromGitHub = tool({
   execute: async ({ path = "" }) => {
     const agent = agentContext.getStore();
     if (!agent) throw new Error("Agent context not found");
-    const github = new GitHubModule(agent.state);
+    const github = new GitHubModule(agent);
     return await github.syncFiles(path);
   },
 });
@@ -58,7 +57,7 @@ export const revertToCommit = tool({
   execute: async ({ commitSha }) => {
     const agent = agentContext.getStore();
     if (!agent) throw new Error("Agent context not found");
-    const github = new GitHubModule(agent.state);
+    const github = new GitHubModule(agent);
     return await github.revertToCommit(commitSha);
   },
 });
@@ -75,7 +74,7 @@ export const deleteFileFromGitHub = tool({
   execute: async ({ path, commitMessage }) => {
     const agent = agentContext.getStore();
     if (!agent) throw new Error("Agent context not found");
-    const github = new GitHubModule(agent.state);
+    const github = new GitHubModule(agent);
     return await github.deleteFile(path, commitMessage);
   },
 });

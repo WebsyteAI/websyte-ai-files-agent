@@ -10,7 +10,7 @@ import {
   GithubLogo,
   Check,
 } from "@phosphor-icons/react";
-import { FileContentsViewer } from "@/components/file-contents-viewer/FileContentsViewer";
+import { FileViewer } from "@/components/file-viewer/FileViewer";
 
 // Define the file structure
 interface FileData {
@@ -160,7 +160,7 @@ export function StoragePanel({
   const [workerId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get("worker");
-    return idParam;
+    return idParam || "unknown";
   });
 
   // Toggle file expansion
@@ -355,10 +355,8 @@ export function StoragePanel({
         ) : (
           <div>
             {agentState?.files && Object.keys(agentState.files).length > 0 ? (
-              <FileContentsViewer
+              <FileViewer
                 files={agentState.files}
-                expandedFiles={expandedFiles}
-                toggleFileExpansion={toggleFileExpansion}
               />
             ) : (
               <div className="text-center text-neutral-500 p-4 text-base">

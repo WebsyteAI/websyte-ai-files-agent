@@ -30,10 +30,8 @@ export const getFileSystem = tool({
     try {
       const agent = agentContext.getStore();
       if (!agent) throw new Error("Agent context not found");
-      const fs = new FilesystemModule(agent.state);
-      const agentFileSystem = fs.getFileSystem();
-
-      return JSON.stringify(agentFileSystem);
+      // Always return files from the agent store directly
+      return JSON.stringify(agent.state.files || {});
     } catch (error) {
       console.error("Error getting file system from agent state:", error);
       return `Error getting file system: ${error}`;
