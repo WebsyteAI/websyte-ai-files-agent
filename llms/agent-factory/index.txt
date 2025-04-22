@@ -1,0 +1,82 @@
+# Cloudflare Agents Factory Documentation
+
+This documentation provides comprehensive resources for building Cloudflare Agents. It's organized into sections that cover concepts, code snippets, configuration, and templates to help you build powerful, stateful agents on Cloudflare's platform.
+
+## Table of Contents
+
+### Concepts
+- [What Are Agents?](concepts/what-are-agents.txt) - Introduction to agents and how they differ from traditional automation
+- [Agents API Reference](concepts/agents-api-reference.txt) - Overview of the Agent class and its core methods and properties
+
+### Code Snippets
+- [State Management](code-snippets/state-management.txt) - How to manage and persist state in agents
+- [WebSocket Handling](code-snippets/websocket-handling.txt) - Real-time communication with clients via WebSockets
+- [AI Model Integration](code-snippets/ai-model-integration.txt) - Integrating AI models from various providers
+- [Scheduling Tasks](code-snippets/scheduling-tasks.txt) - Scheduling future tasks and managing them
+
+### Configuration
+- [Wrangler Configuration](configuration/wrangler-config.txt) - Setting up wrangler.jsonc for agents and configuring bindings
+
+### Integration
+- [MCP Integration](integration/mcp-integration.txt) - Integrating Model Context Protocol (MCP) with Agents
+
+### Templates
+- [Agent Templates](templates/agent-templates.txt) - Ready-to-use templates for common agent types:
+  - Basic Agent
+  - Chat Agent
+  - Workflow Agent
+  - RAG (Retrieval Augmented Generation) Agent
+
+## How to Use This Documentation
+
+### For Beginners
+If you're new to Cloudflare Agents, start with the [What Are Agents?](concepts/what-are-agents.txt) document to understand the core concepts. Then, explore the [Agents API Reference](concepts/agents-api-reference.txt) to learn about the Agent class and its capabilities.
+
+### For Specific Use Cases
+- **Building a chat bot**: Read the [AI Model Integration](code-snippets/ai-model-integration.txt) and [WebSocket Handling](code-snippets/websocket-handling.txt) sections, then use the Chat Agent template.
+- **Creating a workflow automation**: Check out the [Scheduling Tasks](code-snippets/scheduling-tasks.txt) section and the Workflow Agent template.
+- **Building a knowledge base agent**: Explore the [State Management](code-snippets/state-management.txt) section and the RAG Agent template.
+- **Integrating with AI assistants**: Read the [MCP Integration](integration/mcp-integration.txt) section to learn how to build agents that expose tools and resources to AI models.
+
+### For Deployment
+When you're ready to deploy your agent, refer to the [Wrangler Configuration](configuration/wrangler-config.txt) document for detailed instructions on setting up your wrangler.jsonc file and configuring the necessary bindings.
+
+## Key Capabilities of Cloudflare Agents
+
+Agents built with the Cloudflare Agents SDK have several powerful capabilities:
+
+1. **Stateful Computation**: Each agent instance has its own state that persists across requests and can be synchronized with clients.
+
+2. **Real-time Communication**: Agents can communicate with clients in real-time using WebSockets, making them ideal for chat applications, collaborative tools, and live dashboards.
+
+3. **AI Integration**: Agents can call AI models from various providers, including OpenAI, Anthropic, Google's Gemini, and Cloudflare Workers AI.
+
+4. **Task Scheduling**: Agents can schedule tasks to run in the future, enabling complex workflows, periodic checks, and delayed notifications.
+
+5. **Database Access**: Each agent has its own SQLite database for storing and querying data efficiently.
+
+6. **Scalability**: Agents can scale to millions of instances, each with its own isolated state and computation.
+
+## Best Practices
+
+1. **State Management**: Keep your agent's state well-structured and typed. Use TypeScript interfaces to define the shape of your state.
+
+2. **Error Handling**: Implement proper error handling in your agents, especially when calling external services or AI models.
+
+3. **Streaming Responses**: For long-running operations like AI model calls, use streaming to provide a better user experience.
+
+4. **Modular Design**: Break down complex agents into smaller, reusable components or methods.
+
+5. **Testing**: Write tests for your agents to ensure they behave as expected in different scenarios.
+
+6. **Security**: Validate inputs, use environment variables for secrets, and implement proper authentication and authorization.
+
+## Examples
+
+Each section includes practical code examples that you can adapt for your own agents. The templates section provides complete, ready-to-use agent implementations for common use cases.
+
+## Additional Resources
+
+- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
+- [Durable Objects Documentation](https://developers.cloudflare.com/durable-objects/)
+- [Cloudflare Agents Documentation](https://developers.cloudflare.com/agents/)

@@ -1,0 +1,212 @@
+# WebSocket Handling in Agents
+
+Users and clients can connect to an Agent directly over WebSockets, allowing long-running, bi-directional communication with your Agent as it operates.
+
+## Server-Side WebSocket API
+
+To enable an Agent to accept WebSockets, define `onConnect` and `onMessage` methods on your Agent:
+
+```ts
+import { Agent, Connection, WSMessage } from "agents";
+
+export class ChatAgent extends Agent {
+  async onConnect(connection: Connection, ctx: ConnectionContext) {
+    // Connections are automatically accepted by the SDK.
+    // You can also explicitly close a connection here with connection.close()
+    // Access the Request on ctx.request to inspect headers, cookies and the URL
+    console.log("New connection from:", ctx.request.headers.get("User-Agent"));
+    
+    // You can store connection-specific state
+    connection.state = { joinedAt: Date.now() };
+  }
+
+  async onMessage(connection: Connection, message: WSMessage) {
+    if (typeof message === 'string') {
+      try {
+        // Parse JSON message
+        const data = JSON.parse(message);
+        
+        // Process the message based on its type
+        if (data.type === 'chat') {
+          // Call an AI model with the message
+          const response = await this.generateResponse(data.content);
+          
+          // Send the response back to this client
+          connection.send(JSON.stringify({
+            type: 'chat_response',
+            content: response
+          }));
+          
+          // Update Agent state
+          this.setState({
+            ...this.state,
+            messageCount: (this.state.messageCount || 0) + 1
+          });
+        }
+      } catch (e) {
+        connection.send(JSON.stringify({ 
+          type: 'error', 
+          message: 'Invalid message format' 
+        }));
+      }
+    }
+  }
+  
+  // Handle WebSocket errors
+  async onError(connection: Connection, error: unknown): Promise<void> {
+    console.error(`WS error: ${error}`);
+  }
+  
+  // Handle WebSocket disconnection
+  async onClose(connection: Connection, code: number, reason: string, wasClean: boolean): Promise<void> {
+    console.log(`WS closed: ${code} - ${reason} - wasClean: ${wasClean}`);
+    
+    // You might want to clean up any resources associated with this connection
+    // or update Agent state to reflect the disconnection
+  }
+  
+  // Example method to generate responses using an AI model
+  async generateResponse(prompt: string): Promise<string> {
+    // Implementation would call an AI model
+    return `Response to: ${prompt}`;
+  }
+}
+```
+
+## Client-Side Connection
+
+The Agent framework includes a useful helper package for connecting directly to your Agent from a client application:
+
+```ts
+import { AgentClient } from "agents/client";
+
+const connection = new AgentClient({
+  agent: "chat-agent", // Name of your Agent class in kebab-case
+  name: "user-123",    // Unique identifier for this Agent instance
+});
+
+connection.addEventListener("message", (event) => {
+  console.log("Received:", event.data);
+});
+
+connection.send(
+  JSON.stringify({
+    type: "chat",
+    content: "Hello, Agent!"
+  })
+);
+```
+
+## React Integration
+
+React-based applications can import `agents/react` and use the `useAgent` hook to connect to an instance of an Agent directly:
+
+```tsx
+import { useAgent } from "agents/react";
+import { useState } from "react";
+
+function ChatInterface() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  
+  const connection = useAgent({
+    agent: "chat-agent",
+    name: "user-123",
+    onMessage: (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'chat_response') {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: data.content 
+        }]);
+      }
+    },
+    onOpen: () => console.log("Connection established"),
+    onClose: () => console.log("Connection closed"),
+  });
+
+  const sendMessage = () => {
+    if (!input.trim()) return;
+    
+    // Add user message to the UI
+    setMessages(prev => [...prev, { role: 'user', content: input }]);
+    
+    // Send to the Agent
+    connection.send(JSON.stringify({
+      type: "chat",
+      content: input
+    }));
+    
+    setInput("");
+  };
+
+  return (
+    <div className="chat-container">
+      <div className="messages">
+        {messages.map((msg, i) => (
+          <div key={i} className={`message ${msg.role}`}>
+            {msg.content}
+          </div>
+        ))}
+      </div>
+      
+      <div className="input-area">
+        <input 
+          value={input} 
+          onChange={e => setInput(e.target.value)}
+          onKeyPress={e => e.key === 'Enter' && sendMessage()}
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
+    </div>
+  );
+}
+```
+
+## Streaming AI Responses
+
+WebSockets are ideal for streaming responses from AI models that may take time to generate:
+
+```ts
+async onMessage(connection: Connection, message: WSMessage) {
+  if (typeof message !== 'string') return;
+  
+  try {
+    const data = JSON.parse(message);
+    
+    if (data.type === 'generate') {
+      // Set up OpenAI client
+      const openai = new OpenAI({
+        apiKey: this.env.OPENAI_API_KEY,
+      });
+      
+      // Create a streaming completion
+      const stream = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: data.prompt }],
+        stream: true,
+      });
+      
+      // Stream each chunk back to the client as it arrives
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          connection.send(JSON.stringify({ 
+            type: 'chunk', 
+            content 
+          }));
+        }
+      }
+      
+      // Signal completion
+      connection.send(JSON.stringify({ 
+        type: 'complete' 
+      }));
+    }
+  } catch (error) {
+    connection.send(JSON.stringify({ 
+      type: 'error', 
+      message: error.message 
+    }));
+  }
+}

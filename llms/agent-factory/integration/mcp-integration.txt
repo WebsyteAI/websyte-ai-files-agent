@@ -1,0 +1,449 @@
+# Model Context Protocol (MCP) Integration with Agents
+
+The Model Context Protocol (MCP) is an open standard that connects AI systems with external applications. This document explains how to integrate MCP with Cloudflare Agents, allowing your agents to expose tools and resources to AI models.
+
+## What is the Model Context Protocol (MCP)?
+
+MCP provides a standardized way to connect AI agents to different services, similar to how USB-C provides a standardized way to connect devices to accessories. Key MCP terminology:
+
+- **MCP Hosts**: AI assistants (like Claude or Cursor), AI agents, or applications that need to access external capabilities.
+- **MCP Clients**: Clients embedded within the MCP hosts that connect to MCP servers and invoke tools.
+- **MCP Servers**: Applications that expose tools, prompts, and resources that MCP clients can use.
+
+## Building MCP Servers with Agents
+
+Cloudflare provides the `McpAgent` class that extends the standard `Agent` class, making it easy to build MCP servers:
+
+```ts
+import { McpAgent } from "agents/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+type State = { counter: number };
+
+export class MyMCP extends McpAgent<Env, State, {}> {
+  server = new McpServer({
+    name: "Demo",
+    version: "1.0.0",
+  });
+
+  initialState: State = {
+    counter: 1,
+  };
+
+  async init() {
+    // Define a resource
+    this.server.resource(`counter`, `mcp://resource/counter`, (uri) => {
+      return {
+        contents: [{ uri: uri.href, text: String(this.state.counter) }],
+      };
+    });
+
+    // Define a tool
+    this.server.tool(
+      "add",
+      "Add to the counter, stored in the MCP",
+      { a: z.number() },
+      async ({ a }) => {
+        this.setState({ ...this.state, counter: this.state.counter + a });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: String(`Added ${a}, total is now ${this.state.counter}`),
+            },
+          ],
+        };
+      }
+    );
+  }
+
+  onStateUpdate(state: State) {
+    console.log({ stateUpdate: state });
+  }
+}
+```
+
+## Defining MCP Tools
+
+MCP tools are functions that an MCP Server provides and MCP clients can call. Here's how to define tools in your MCP Agent:
+
+```ts
+// Simple tool with parameters
+this.server.tool(
+  "add", // Tool name
+  "Add two numbers together", // Tool description
+  { 
+    a: z.number(), 
+    b: z.number() 
+  }, // Parameters with Zod validation
+  async ({ a, b }) => ({
+    content: [{ type: "text", text: String(a + b) }],
+  })
+);
+
+// Tool with more complex parameters
+this.server.tool(
+  "search_products",
+  "Search for products in the catalog",
+  {
+    query: z.string(),
+    category: z.enum(["electronics", "clothing", "food"]).optional(),
+    max_results: z.number().min(1).max(50).default(10)
+  },
+  async ({ query, category, max_results }) => {
+    // Implementation would search products
+    const results = await this.searchProducts(query, category, max_results);
+    
+    return {
+      content: [
+        { 
+          type: "text", 
+          text: `Found ${results.length} products matching "${query}"` 
+        }
+      ],
+      data: results
+    };
+  }
+);
+```
+
+## Defining MCP Resources
+
+MCP resources provide data that MCP clients can access:
+
+```ts
+// Define a static resource
+this.server.resource(
+  `documentation`, 
+  `mcp://resource/documentation`, 
+  (uri) => {
+    return {
+      contents: [
+        { 
+          uri: uri.href, 
+          text: "This is the documentation for the MCP server." 
+        }
+      ],
+    };
+  }
+);
+
+// Define a dynamic resource that uses agent state
+this.server.resource(
+  `user_profile`, 
+  `mcp://resource/user_profile`, 
+  (uri) => {
+    return {
+      contents: [
+        { 
+          uri: uri.href, 
+          text: JSON.stringify(this.state.userProfile) 
+        }
+      ],
+    };
+  }
+);
+```
+
+## Wrangler Configuration for MCP Agents
+
+To deploy an MCP Agent, you need to configure your wrangler.jsonc file:
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "my-mcp-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-02-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MyMCP",
+        "class_name": "MyMCP"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["MyMCP"]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
+```
+
+## Remote vs. Local MCP Connections
+
+The MCP standard supports two modes of operation:
+
+- **Remote MCP connections**: MCP clients connect to MCP servers over the Internet, establishing a long-lived connection using HTTP and Server-Sent Events (SSE), and authorizing the MCP client access to resources on the user's account using OAuth.
+- **Local MCP connections**: MCP clients connect to MCP servers on the same machine, using stdio as a local transport method.
+
+Cloudflare Agents support remote MCP connections out of the box.
+
+## Authentication and Authorization
+
+For remote MCP connections, you need to implement authentication and authorization. Cloudflare provides an OAuth Provider Library that implements the provider side of the OAuth 2.1 protocol:
+
+```ts
+import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
+import MyAuthHandler from "./auth-handler";
+import { MyMCP } from "./mcp";
+
+export default new OAuthProvider({
+  apiRoute: "/mcp",
+  apiHandler: MyMCP.Router,
+  defaultHandler: MyAuthHandler,
+  authorizeEndpoint: "/authorize",
+  tokenEndpoint: "/token",
+  clientRegistrationEndpoint: "/register",
+});
+```
+
+## Using Authentication Context in Your MCP Agent
+
+When a user authenticates to your MCP server, their identity information and tokens are made available through the `props` parameter:
+
+```ts
+export class MyMCP extends McpAgent<Env, unknown, AuthContext> {
+  async init() {
+    this.server.tool("userInfo", "Get user information", {}, async () => ({
+      content: [{ type: "text", text: `Hello, ${this.props.claims.name || "user"}!` }],
+    }));
+  }
+}
+```
+
+## Implementing Permission-Based Access for MCP Tools
+
+You can implement fine-grained authorization controls for your MCP tools based on user permissions:
+
+```ts
+// Create a wrapper function to check permissions
+function requirePermission(permission, handler) {
+  return async (request, context) => {
+    // Check if user has the required permission
+    const userPermissions = context.props.permissions || [];
+    
+    if (!userPermissions.includes(permission)) {
+      return {
+        content: [{ type: "text", text: `Permission denied: requires ${permission}` }],
+        status: 403
+      };
+    }
+    
+    // If permission check passes, execute the handler
+    return handler(request, context);
+  };
+}
+
+// Use the wrapper with your MCP tools
+async init() {
+  // Basic tools available to all authenticated users
+  this.server.tool("basicTool", "Available to all users", {}, async () => {
+    // Implementation for all users
+  });
+  
+  // Protected tool using the permission wrapper
+  this.server.tool(
+    "adminAction",
+    "Administrative action requiring special permission",
+    { /* parameters */ },
+    requirePermission("admin", async (req) => {
+      // Only executes if user has "admin" permission
+      return {
+        content: [{ type: "text", text: "Admin action completed" }]
+      };
+    })
+  );
+  
+  // Conditionally register tools based on user permissions
+  if (this.props.permissions?.includes("special_feature")) {
+    this.server.tool("specialTool", "Special feature", {}, async () => {
+      // This tool only appears for users with the special_feature permission
+    });
+  }
+}
+```
+
+## Testing MCP Servers
+
+You can test your MCP server using the MCP inspector:
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+Then, enter the URL of your MCP server (e.g., `http://localhost:8787/mcp`).
+
+## Connecting MCP Servers to AI Assistants
+
+AI assistants like Claude Desktop can connect to your MCP server. For assistants that don't yet support remote MCP connections, you can use the `mcp-remote` local proxy:
+
+```bash
+npm install -g mcp-remote
+```
+
+Then, configure the assistant to use the proxy:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://your-mcp-server.workers.dev/mcp"]
+    }
+  }
+}
+```
+
+## Example: Building a Knowledge Base MCP Server
+
+Here's an example of an MCP server that provides access to a knowledge base:
+
+```ts
+import { McpAgent } from "agents/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+interface Document {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+}
+
+interface KnowledgeBaseState {
+  documents: Record<string, Document>;
+}
+
+export class KnowledgeBaseMCP extends McpAgent<Env, KnowledgeBaseState, {}> {
+  server = new McpServer({
+    name: "Knowledge Base",
+    version: "1.0.0",
+  });
+
+  initialState: KnowledgeBaseState = {
+    documents: {}
+  };
+
+  async init() {
+    // Tool to search documents
+    this.server.tool(
+      "search_documents",
+      "Search for documents in the knowledge base",
+      {
+        query: z.string(),
+        tags: z.array(z.string()).optional()
+      },
+      async ({ query, tags }) => {
+        const results = Object.values(this.state.documents).filter(doc => {
+          // Search in title and content
+          const matchesQuery = doc.title.toLowerCase().includes(query.toLowerCase()) ||
+                              doc.content.toLowerCase().includes(query.toLowerCase());
+          
+          // Filter by tags if provided
+          const matchesTags = !tags || tags.every(tag => doc.tags.includes(tag));
+          
+          return matchesQuery && matchesTags;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Found ${results.length} documents matching "${query}"${tags ? ` with tags ${tags.join(', ')}` : ''}`
+            }
+          ],
+          data: results.map(doc => ({
+            id: doc.id,
+            title: doc.title,
+            snippet: doc.content.substring(0, 100) + '...'
+          }))
+        };
+      }
+    );
+    
+    // Tool to get document by ID
+    this.server.tool(
+      "get_document",
+      "Get a document by ID",
+      {
+        id: z.string()
+      },
+      async ({ id }) => {
+        const document = this.state.documents[id];
+        
+        if (!document) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Document with ID ${id} not found`
+              }
+            ],
+            status: 404
+          };
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `# ${document.title}\n\n${document.content}`
+            }
+          ],
+          data: document
+        };
+      }
+    );
+    
+    // Tool to add a document
+    this.server.tool(
+      "add_document",
+      "Add a document to the knowledge base",
+      {
+        title: z.string(),
+        content: z.string(),
+        tags: z.array(z.string()).default([])
+      },
+      async ({ title, content, tags }) => {
+        const id = crypto.randomUUID();
+        
+        const document: Document = {
+          id,
+          title,
+          content,
+          tags
+        };
+        
+        // Update state with new document
+        this.setState({
+          documents: {
+            ...this.state.documents,
+            [id]: document
+          }
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Document added with ID ${id}`
+            }
+          ],
+          data: { id }
+        };
+      }
+    );
+  }
+}
+```
+
+This MCP server allows AI assistants to search for documents, retrieve specific documents, and add new documents to the knowledge base.

@@ -1,0 +1,932 @@
+# Agent Templates
+
+This document provides ready-to-use templates for common agent types that can be built with the Cloudflare Agents SDK. These templates can be used as starting points for your own agents.
+
+## Basic Agent Template
+
+A minimal agent that handles HTTP requests and WebSocket connections:
+
+```ts
+import { Agent, Connection, WSMessage } from "agents";
+
+interface Env {
+  // Define your environment variables and bindings here
+}
+
+interface State {
+  // Define your agent's state structure here
+  counter: number;
+  lastUpdated: string;
+}
+
+export class BasicAgent extends Agent<Env, State> {
+  // Set initial state
+  initialState: State = {
+    counter: 0,
+    lastUpdated: new Date().toISOString()
+  };
+
+  // Handle HTTP requests
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    if (path === "/increment") {
+      // Update state
+      this.setState({
+        counter: this.state.counter + 1,
+        lastUpdated: new Date().toISOString()
+      });
+      
+      return Response.json({
+        message: "Counter incremented",
+        state: this.state
+      });
+    }
+    
+    // Default response
+    return Response.json({
+      message: "Basic Agent",
+      state: this.state
+    });
+  }
+  
+  // Handle WebSocket connections
+  async onConnect(connection: Connection, ctx: ConnectionContext) {
+    console.log("New WebSocket connection");
+    
+    // Send initial state
+    connection.send(JSON.stringify({
+      type: "state",
+      data: this.state
+    }));
+  }
+  
+  // Handle WebSocket messages
+  async onMessage(connection: Connection, message: WSMessage) {
+    if (typeof message !== 'string') return;
+    
+    try {
+      const data = JSON.parse(message);
+      
+      if (data.type === "increment") {
+        // Update state
+        this.setState({
+          counter: this.state.counter + 1,
+          lastUpdated: new Date().toISOString()
+        });
+        
+        // Send updated state
+        connection.send(JSON.stringify({
+          type: "state",
+          data: this.state
+        }));
+      }
+    } catch (error) {
+      connection.send(JSON.stringify({
+        type: "error",
+        message: "Invalid message format"
+      }));
+    }
+  }
+  
+  // Handle state updates
+  onStateUpdate(state: State, source: "server" | Connection) {
+    console.log(`State updated by ${source === "server" ? "server" : "client"}:`, state);
+  }
+}
+```
+
+## Chat Agent Template
+
+An agent that provides chat functionality with AI model integration:
+
+```ts
+import { Agent, Connection, WSMessage } from "agents";
+import { OpenAI } from "openai";
+
+interface Env {
+  OPENAI_API_KEY: string;
+}
+
+interface Message {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp?: number;
+}
+
+interface ChatState {
+  messages: Message[];
+  userPreferences: {
+    model: string;
+    temperature: number;
+    systemPrompt: string;
+  };
+}
+
+export class ChatAgent extends Agent<Env, ChatState> {
+  // Set initial state
+  initialState: ChatState = {
+    messages: [],
+    userPreferences: {
+      model: "gpt-4o",
+      temperature: 0.7,
+      systemPrompt: "You are a helpful assistant."
+    }
+  };
+
+  // Handle HTTP requests
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    if (path === "/chat" && request.method === "POST") {
+      const { message } = await request.json();
+      
+      // Add user message to history
+      const userMessage: Message = {
+        role: "user",
+        content: message,
+        timestamp: Date.now()
+      };
+      
+      // Update state with user message
+      this.setState({
+        ...this.state,
+        messages: [...this.state.messages, userMessage]
+      });
+      
+      // Generate AI response
+      const aiResponse = await this.generateResponse(message);
+      
+      // Add AI response to history
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: aiResponse,
+        timestamp: Date.now()
+      };
+      
+      // Update state with AI response
+      this.setState({
+        ...this.state,
+        messages: [...this.state.messages, assistantMessage]
+      });
+      
+      return Response.json({
+        message: aiResponse
+      });
+    }
+    
+    if (path === "/history") {
+      return Response.json({
+        messages: this.state.messages
+      });
+    }
+    
+    if (path === "/preferences" && request.method === "POST") {
+      const preferences = await request.json();
+      
+      // Update preferences
+      this.setState({
+        ...this.state,
+        userPreferences: {
+          ...this.state.userPreferences,
+          ...preferences
+        }
+      });
+      
+      return Response.json({
+        message: "Preferences updated",
+        preferences: this.state.userPreferences
+      });
+    }
+    
+    // Default response
+    return Response.json({
+      message: "Chat Agent API",
+      endpoints: ["/chat", "/history", "/preferences"]
+    });
+  }
+  
+  // Handle WebSocket connections
+  async onConnect(connection: Connection, ctx: ConnectionContext) {
+    console.log("New chat connection");
+    
+    // Send chat history
+    connection.send(JSON.stringify({
+      type: "history",
+      messages: this.state.messages
+    }));
+  }
+  
+  // Handle WebSocket messages
+  async onMessage(connection: Connection, message: WSMessage) {
+    if (typeof message !== 'string') return;
+    
+    try {
+      const data = JSON.parse(message);
+      
+      if (data.type === "chat") {
+        // Add user message to history
+        const userMessage: Message = {
+          role: "user",
+          content: data.message,
+          timestamp: Date.now()
+        };
+        
+        // Update state with user message
+        this.setState({
+          ...this.state,
+          messages: [...this.state.messages, userMessage]
+        });
+        
+        // Notify client that message was received
+        connection.send(JSON.stringify({
+          type: "message_received",
+          message: userMessage
+        }));
+        
+        // Generate AI response (streaming)
+        const openai = new OpenAI({
+          apiKey: this.env.OPENAI_API_KEY,
+        });
+        
+        const stream = await openai.chat.completions.create({
+          model: this.state.userPreferences.model,
+          temperature: this.state.userPreferences.temperature,
+          messages: [
+            { role: "system", content: this.state.userPreferences.systemPrompt },
+            ...this.state.messages.map(m => ({ role: m.role, content: m.content }))
+          ],
+          stream: true,
+        });
+        
+        let fullResponse = '';
+        
+        // Stream each chunk back to the client
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullResponse += content;
+            connection.send(JSON.stringify({ 
+              type: 'chunk', 
+              content 
+            }));
+          }
+        }
+        
+        // Add AI response to history
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: fullResponse,
+          timestamp: Date.now()
+        };
+        
+        // Update state with AI response
+        this.setState({
+          ...this.state,
+          messages: [...this.state.messages, assistantMessage]
+        });
+        
+        // Signal completion
+        connection.send(JSON.stringify({ 
+          type: 'complete',
+          message: assistantMessage
+        }));
+      }
+      
+      if (data.type === "clear_history") {
+        // Clear chat history
+        this.setState({
+          ...this.state,
+          messages: []
+        });
+        
+        // Notify client
+        connection.send(JSON.stringify({
+          type: "history_cleared"
+        }));
+      }
+      
+      if (data.type === "update_preferences") {
+        // Update preferences
+        this.setState({
+          ...this.state,
+          userPreferences: {
+            ...this.state.userPreferences,
+            ...data.preferences
+          }
+        });
+        
+        // Notify client
+        connection.send(JSON.stringify({
+          type: "preferences_updated",
+          preferences: this.state.userPreferences
+        }));
+      }
+    } catch (error) {
+      connection.send(JSON.stringify({
+        type: "error",
+        message: "Invalid message format"
+      }));
+    }
+  }
+  
+  // Generate response using AI model
+  async generateResponse(message: string): Promise<string> {
+    const openai = new OpenAI({
+      apiKey: this.env.OPENAI_API_KEY,
+    });
+    
+    const response = await openai.chat.completions.create({
+      model: this.state.userPreferences.model,
+      temperature: this.state.userPreferences.temperature,
+      messages: [
+        { role: "system", content: this.state.userPreferences.systemPrompt },
+        ...this.state.messages.map(m => ({ role: m.role, content: m.content })),
+        { role: "user", content: message }
+      ]
+    });
+    
+    return response.choices[0].message.content || "I don't know how to respond to that.";
+  }
+}
+```
+
+## Workflow Agent Template
+
+An agent that orchestrates multi-step workflows:
+
+```ts
+import { Agent } from "agents";
+
+interface Env {
+  // Define your environment variables and bindings here
+}
+
+interface WorkflowStep {
+  id: string;
+  name: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  data?: any;
+  startedAt?: number;
+  completedAt?: number;
+  error?: string;
+}
+
+interface Workflow {
+  id: string;
+  name: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  steps: WorkflowStep[];
+  currentStepIndex: number;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+  data: Record<string, any>;
+}
+
+interface WorkflowState {
+  workflows: Record<string, Workflow>;
+}
+
+export class WorkflowAgent extends Agent<Env, WorkflowState> {
+  // Set initial state
+  initialState: WorkflowState = {
+    workflows: {}
+  };
+
+  // Handle HTTP requests
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    if (path === "/workflow" && request.method === "POST") {
+      // Create a new workflow
+      const { name, steps, data } = await request.json();
+      
+      const workflowId = crypto.randomUUID();
+      const workflow: Workflow = {
+        id: workflowId,
+        name,
+        status: "pending",
+        steps: steps.map((step: any) => ({
+          id: crypto.randomUUID(),
+          name: step.name,
+          status: "pending",
+          data: step.data
+        })),
+        currentStepIndex: -1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        data: data || {}
+      };
+      
+      // Update state with new workflow
+      this.setState({
+        workflows: {
+          ...this.state.workflows,
+          [workflowId]: workflow
+        }
+      });
+      
+      // Schedule the workflow to start
+      await this.schedule(0, "startWorkflow", { workflowId });
+      
+      return Response.json({
+        message: "Workflow created",
+        workflowId
+      });
+    }
+    
+    if (path.startsWith("/workflow/") && request.method === "GET") {
+      // Get workflow status
+      const workflowId = path.split("/")[2];
+      const workflow = this.state.workflows[workflowId];
+      
+      if (!workflow) {
+        return Response.json({
+          error: "Workflow not found"
+        }, { status: 404 });
+      }
+      
+      return Response.json({
+        workflow
+      });
+    }
+    
+    if (path.startsWith("/workflow/") && request.method === "DELETE") {
+      // Cancel workflow
+      const workflowId = path.split("/")[2];
+      const workflow = this.state.workflows[workflowId];
+      
+      if (!workflow) {
+        return Response.json({
+          error: "Workflow not found"
+        }, { status: 404 });
+      }
+      
+      // Update workflow status
+      const updatedWorkflow: Workflow = {
+        ...workflow,
+        status: "failed",
+        updatedAt: Date.now()
+      };
+      
+      // Update state
+      this.setState({
+        workflows: {
+          ...this.state.workflows,
+          [workflowId]: updatedWorkflow
+        }
+      });
+      
+      return Response.json({
+        message: "Workflow cancelled",
+        workflow: updatedWorkflow
+      });
+    }
+    
+    // Default response
+    return Response.json({
+      message: "Workflow Agent API",
+      endpoints: ["/workflow", "/workflow/:id"]
+    });
+  }
+  
+  // Start a workflow
+  async startWorkflow(data: { workflowId: string }) {
+    const { workflowId } = data;
+    const workflow = this.state.workflows[workflowId];
+    
+    if (!workflow || workflow.status !== "pending") {
+      console.log(`Cannot start workflow ${workflowId}: not found or not pending`);
+      return;
+    }
+    
+    // Update workflow status
+    const updatedWorkflow: Workflow = {
+      ...workflow,
+      status: "in_progress",
+      currentStepIndex: 0,
+      updatedAt: Date.now()
+    };
+    
+    // Update state
+    this.setState({
+      workflows: {
+        ...this.state.workflows,
+        [workflowId]: updatedWorkflow
+      }
+    });
+    
+    // Schedule the first step
+    await this.schedule(0, "executeWorkflowStep", { workflowId });
+  }
+  
+  // Execute a workflow step
+  async executeWorkflowStep(data: { workflowId: string }) {
+    const { workflowId } = data;
+    const workflow = this.state.workflows[workflowId];
+    
+    if (!workflow || workflow.status !== "in_progress") {
+      console.log(`Cannot execute step for workflow ${workflowId}: not found or not in progress`);
+      return;
+    }
+    
+    const currentStepIndex = workflow.currentStepIndex;
+    const currentStep = workflow.steps[currentStepIndex];
+    
+    if (!currentStep) {
+      console.log(`Cannot execute step ${currentStepIndex} for workflow ${workflowId}: step not found`);
+      return;
+    }
+    
+    // Update step status
+    const updatedStep: WorkflowStep = {
+      ...currentStep,
+      status: "in_progress",
+      startedAt: Date.now()
+    };
+    
+    const updatedSteps = [...workflow.steps];
+    updatedSteps[currentStepIndex] = updatedStep;
+    
+    // Update workflow
+    const updatedWorkflow: Workflow = {
+      ...workflow,
+      steps: updatedSteps,
+      updatedAt: Date.now()
+    };
+    
+    // Update state
+    this.setState({
+      workflows: {
+        ...this.state.workflows,
+        [workflowId]: updatedWorkflow
+      }
+    });
+    
+    try {
+      // Execute the step based on its name
+      // This is where you would implement your workflow step logic
+      switch (currentStep.name) {
+        case "fetch_data":
+          await this.executeFetchDataStep(workflowId, currentStep);
+          break;
+        case "process_data":
+          await this.executeProcessDataStep(workflowId, currentStep);
+          break;
+        case "send_notification":
+          await this.executeSendNotificationStep(workflowId, currentStep);
+          break;
+        default:
+          throw new Error(`Unknown step type: ${currentStep.name}`);
+      }
+      
+      // Mark step as completed
+      const completedStep: WorkflowStep = {
+        ...updatedStep,
+        status: "completed",
+        completedAt: Date.now()
+      };
+      
+      const completedSteps = [...updatedSteps];
+      completedSteps[currentStepIndex] = completedStep;
+      
+      // Check if this was the last step
+      const isLastStep = currentStepIndex === workflow.steps.length - 1;
+      
+      // Update workflow
+      const nextWorkflow: Workflow = {
+        ...updatedWorkflow,
+        steps: completedSteps,
+        currentStepIndex: isLastStep ? currentStepIndex : currentStepIndex + 1,
+        status: isLastStep ? "completed" : "in_progress",
+        updatedAt: Date.now(),
+        completedAt: isLastStep ? Date.now() : undefined
+      };
+      
+      // Update state
+      this.setState({
+        workflows: {
+          ...this.state.workflows,
+          [workflowId]: nextWorkflow
+        }
+      });
+      
+      // Schedule the next step if not the last step
+      if (!isLastStep) {
+        await this.schedule(0, "executeWorkflowStep", { workflowId });
+      }
+    } catch (error) {
+      // Mark step as failed
+      const failedStep: WorkflowStep = {
+        ...updatedStep,
+        status: "failed",
+        error: error.message,
+        completedAt: Date.now()
+      };
+      
+      const failedSteps = [...updatedSteps];
+      failedSteps[currentStepIndex] = failedStep;
+      
+      // Update workflow
+      const failedWorkflow: Workflow = {
+        ...updatedWorkflow,
+        steps: failedSteps,
+        status: "failed",
+        updatedAt: Date.now()
+      };
+      
+      // Update state
+      this.setState({
+        workflows: {
+          ...this.state.workflows,
+          [workflowId]: failedWorkflow
+        }
+      });
+    }
+  }
+  
+  // Example step implementations
+  async executeFetchDataStep(workflowId: string, step: WorkflowStep) {
+    console.log(`Executing fetch_data step for workflow ${workflowId}`);
+    
+    // Simulate fetching data
+    const data = { result: "Sample data fetched" };
+    
+    // Update workflow data
+    const workflow = this.state.workflows[workflowId];
+    const updatedWorkflow: Workflow = {
+      ...workflow,
+      data: {
+        ...workflow.data,
+        fetchedData: data
+      },
+      updatedAt: Date.now()
+    };
+    
+    // Update state
+    this.setState({
+      workflows: {
+        ...this.state.workflows,
+        [workflowId]: updatedWorkflow
+      }
+    });
+  }
+  
+  async executeProcessDataStep(workflowId: string, step: WorkflowStep) {
+    console.log(`Executing process_data step for workflow ${workflowId}`);
+    
+    // Get workflow data
+    const workflow = this.state.workflows[workflowId];
+    const fetchedData = workflow.data.fetchedData;
+    
+    if (!fetchedData) {
+      throw new Error("No data to process");
+    }
+    
+    // Simulate processing data
+    const processedData = { 
+      result: `Processed: ${fetchedData.result}`,
+      timestamp: Date.now()
+    };
+    
+    // Update workflow data
+    const updatedWorkflow: Workflow = {
+      ...workflow,
+      data: {
+        ...workflow.data,
+        processedData
+      },
+      updatedAt: Date.now()
+    };
+    
+    // Update state
+    this.setState({
+      workflows: {
+        ...this.state.workflows,
+        [workflowId]: updatedWorkflow
+      }
+    });
+  }
+  
+  async executeSendNotificationStep(workflowId: string, step: WorkflowStep) {
+    console.log(`Executing send_notification step for workflow ${workflowId}`);
+    
+    // Get workflow data
+    const workflow = this.state.workflows[workflowId];
+    const processedData = workflow.data.processedData;
+    
+    if (!processedData) {
+      throw new Error("No processed data to send");
+    }
+    
+    // Simulate sending notification
+    console.log(`Sending notification with data: ${JSON.stringify(processedData)}`);
+    
+    // Update workflow data
+    const updatedWorkflow: Workflow = {
+      ...workflow,
+      data: {
+        ...workflow.data,
+        notificationSent: true,
+        notificationTimestamp: Date.now()
+      },
+      updatedAt: Date.now()
+    };
+    
+    // Update state
+    this.setState({
+      workflows: {
+        ...this.state.workflows,
+        [workflowId]: updatedWorkflow
+      }
+    });
+  }
+}
+```
+
+## RAG (Retrieval Augmented Generation) Agent Template
+
+An agent that uses vector search to enhance AI responses:
+
+```ts
+import { Agent } from "agents";
+import { OpenAI } from "openai";
+
+interface Env {
+  OPENAI_API_KEY: string;
+  VECTOR_DB: Vectorize;
+  AI: Ai;
+}
+
+interface Document {
+  id: string;
+  title: string;
+  content: string;
+  embedding?: number[];
+  metadata?: Record<string, any>;
+}
+
+interface RagState {
+  documents: Record<string, Document>;
+  queries: {
+    id: string;
+    query: string;
+    results: string[];
+    timestamp: number;
+  }[];
+}
+
+export class RagAgent extends Agent<Env, RagState> {
+  // Set initial state
+  initialState: RagState = {
+    documents: {},
+    queries: []
+  };
+
+  // Handle HTTP requests
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    if (path === "/document" && request.method === "POST") {
+      // Add a document
+      const { title, content, metadata } = await request.json();
+      
+      const documentId = crypto.randomUUID();
+      
+      // Generate embedding for the document
+      const embedding = await this.generateEmbedding(content);
+      
+      // Store document in state
+      const document: Document = {
+        id: documentId,
+        title,
+        content,
+        embedding,
+        metadata
+      };
+      
+      this.setState({
+        ...this.state,
+        documents: {
+          ...this.state.documents,
+          [documentId]: document
+        }
+      });
+      
+      // Store document in vector database
+      await this.env.VECTOR_DB.insert([
+        {
+          id: documentId,
+          values: embedding,
+          metadata: {
+            id: documentId,
+            title,
+            ...metadata
+          }
+        }
+      ]);
+      
+      return Response.json({
+        message: "Document added",
+        documentId
+      });
+    }
+    
+    if (path === "/query" && request.method === "POST") {
+      // Query documents and generate response
+      const { query } = await request.json();
+      
+      // Generate embedding for the query
+      const queryEmbedding = await this.generateEmbedding(query);
+      
+      // Search for relevant documents
+      const searchResults = await this.env.VECTOR_DB.query(queryEmbedding, {
+        topK: 5,
+        returnMetadata: 'all'
+      });
+      
+      // Get the full content of the matched documents
+      const relevantDocuments = searchResults.matches.map(match => {
+        const documentId = match.metadata.id as string;
+        return this.state.documents[documentId];
+      }).filter(Boolean);
+      
+      // Generate context from relevant documents
+      const context = relevantDocuments.map(doc => 
+        `Title: ${doc.title}\nContent: ${doc.content}`
+      ).join('\n\n');
+      
+      // Generate response using AI model with context
+      const response = await this.generateResponse(query, context);
+      
+      // Store query in state
+      const queryId = crypto.randomUUID();
+      this.setState({
+        ...this.state,
+        queries: [
+          ...this.state.queries,
+          {
+            id: queryId,
+            query,
+            results: relevantDocuments.map(doc => doc.id),
+            timestamp: Date.now()
+          }
+        ]
+      });
+      
+      return Response.json({
+        response,
+        sources: relevantDocuments.map(doc => ({
+          id: doc.id,
+          title: doc.title
+        }))
+      });
+    }
+    
+    // Default response
+    return Response.json({
+      message: "RAG Agent API",
+      endpoints: ["/document", "/query"]
+    });
+  }
+  
+  // Generate embedding for text
+  async generateEmbedding(text: string): Promise<number[]> {
+    // Use Workers AI to generate embedding
+    const result = await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [text]
+    });
+    
+    return result.data[0];
+  }
+  
+  // Generate response using AI model with context
+  async generateResponse(query: string, context: string): Promise<string> {
+    const openai = new OpenAI({
+      apiKey: this.env.OPENAI_API_KEY,
+    });
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { 
+          role: "system", 
+          content: `You are a helpful assistant that answers questions based on the provided context. 
+                   If the answer cannot be found in the context, say "I don't have enough information to answer that."
+                   Context:\n${context}`
+        },
+        { role: "user", content: query }
+      ]
+    });
+    
+    return response.choices[0].message.content || "I don't have enough information to answer that.";
+  }
+}
+```
+
+These templates provide a starting point for building different types of agents with the Cloudflare Agents SDK. You can customize them to fit your specific requirements.

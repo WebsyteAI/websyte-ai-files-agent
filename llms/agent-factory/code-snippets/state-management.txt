@@ -1,0 +1,159 @@
+# State Management in Agents
+
+Every Agent has built-in state management capabilities, including built-in storage and synchronization between the Agent and frontend applications.
+
+## State Characteristics
+
+State within an Agent is:
+* Persisted across Agent restarts: data is permanently stored within an Agent.
+* Automatically serialized/deserialized: you can store any JSON-serializable data.
+* Immediately consistent within the Agent: read your own writes.
+* Thread-safe for concurrent updates
+* Fast: state is colocated wherever the Agent is running. Reads and writes do not need to traverse the network.
+
+## State API
+
+```ts
+import { Agent } from "agents";
+
+interface Env {}
+
+// Define a type for your Agent's state
+interface FlightRecord {
+  id: string;
+  departureIata: string;
+  arrival: Date;
+  arrivalIata: string;
+  price: number;
+}
+
+// Pass in the type of your Agent's state
+export class MyAgent extends Agent<Env, FlightRecord> {
+  // Set a default, initial state
+  initialState = {
+    id: "",
+    departureIata: "",
+    arrival: new Date(),
+    arrivalIata: "",
+    price: 0
+  };
+
+  // This allows this.setState and the onStateUpdate method to be typed
+  async onStateUpdate(state: FlightRecord) {
+    console.log("state updated", state);
+  }
+
+  async someOtherMethod() {
+    this.setState({
+      ...this.state,
+      price: this.state.price + 10,
+    });
+  }
+}
+```
+
+## Synchronizing State with Clients
+
+Clients can connect to an Agent and stay synchronized with its state using the React hooks provided as part of `agents/react`.
+
+```ts
+import { useState } from "react";
+import { useAgent } from "agents/react";
+
+function StateInterface() {
+  const [state, setState] = useState({ counter: 0 });
+
+  const agent = useAgent({
+    agent: "thinking-agent",
+    name: "my-agent",
+    onStateUpdate: (newState) => setState(newState),
+  });
+
+  const increment = () => {
+    agent.setState({ counter: state.counter + 1 });
+  };
+
+  return (
+    <div>
+      <div>Count: {state.counter}</div>
+      <button onClick={increment}>Increment</button>
+    </div>
+  );
+}
+```
+
+## SQL API
+
+Every individual Agent instance has its own SQL (SQLite) database that runs within the same context as the Agent itself. This means that inserting or querying data within your Agent is effectively zero-latency.
+
+```ts
+export class MyAgent extends Agent<Env> {
+  async setupDatabase() {
+    // Create a table if it doesn't exist
+    this.sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE,
+        created_at INTEGER
+      )
+    `;
+  }
+
+  async createUser(id: string, name: string, email: string) {
+    // Insert a new user
+    this.sql`
+      INSERT INTO users (id, name, email, created_at)
+      VALUES (${id}, ${name}, ${email}, ${Date.now()})
+    `;
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    // Query a user by ID with type safety
+    const users = this.sql<User>`
+      SELECT * FROM users WHERE id = ${id}
+    `;
+
+    return users.length ? users[0] : null;
+  }
+}
+```
+
+## Using Agent State as Model Context
+
+You can combine the state and SQL APIs in your Agent with its ability to call AI models to include historical context within your prompts to a model:
+
+```ts
+export class ReasoningAgent extends Agent<Env> {
+  async callReasoningModel(prompt: Prompt) {
+    // Query history from the Agent's database
+    let result = this.sql<History>`SELECT * FROM history WHERE user = ${prompt.userId} ORDER BY timestamp DESC LIMIT 1000`;
+    let context = [];
+    for await (const row of result) {
+      context.push(row.entry);
+    }
+
+    const client = new OpenAI({
+      apiKey: this.env.OPENAI_API_KEY,
+    });
+
+    // Combine user history with the current prompt
+    const systemPrompt = prompt.system || 'You are a helpful assistant.';
+    const userPrompt = `${prompt.user}\n\nUser history:\n${context.join('\n')}`;
+
+    const completion = await client.chat.completions.create({
+      model: this.env.MODEL || 'o3-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    // Store the response in history
+    this.sql`INSERT INTO history (timestamp, user, entry) VALUES (${new Date()}, ${prompt.userId}, ${completion.choices[0].message.content})`;
+
+    return completion.choices[0].message.content;
+  }
+}

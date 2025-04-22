@@ -1,0 +1,267 @@
+# Wrangler Configuration for Agents
+
+An Agent is configured like any other Cloudflare Workers project, using a wrangler configuration file to define where your code is and what services (bindings) it will use.
+
+## Basic Configuration
+
+Below is a minimal `wrangler.jsonc` file that defines the configuration for an Agent:
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "my-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-02-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        // Required:
+        "name": "MyAgent", // How your Agent is called from your Worker
+        "class_name": "MyAgent", // Must match the class name of the Agent in your code
+        // Optional: set this if the Agent is defined in another Worker script
+        "script_name": "the-other-worker"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      // Mandatory for the Agent to store state
+      "new_sqlite_classes": ["MyAgent"]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
+```
+
+The configuration includes:
+
+- A `main` field that points to the entry point of your Agent, typically a TypeScript (or JavaScript) file.
+- A `durable_objects` field that defines the [Durable Object namespace](/durable-objects/reference/glossary/) that your Agents will run within.
+- A `migrations` field that defines the code migrations that your Agent will use. This field is mandatory and must contain at least one migration. The `new_sqlite_classes` field is mandatory for the Agent to store state.
+
+## Common Bindings
+
+Agents often need to connect to other Cloudflare services. Here are common bindings you might need:
+
+### Workers AI
+
+```jsonc
+{
+  // ...
+  "ai": {
+    "binding": "AI"
+  }
+  // ...
+}
+```
+
+### Vectorize (Vector Database)
+
+```jsonc
+{
+  // ...
+  "vectorize": [
+    {
+      "binding": "VECTOR_DB",
+      "index_name": "your-vectorize-index-name"
+    }
+  ]
+  // ...
+}
+```
+
+### KV Storage
+
+```jsonc
+{
+  // ...
+  "kv_namespaces": [
+    {
+      "binding": "MY_KV",
+      "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ]
+  // ...
+}
+```
+
+### D1 Database
+
+```jsonc
+{
+  // ...
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "my-database",
+      "database_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    }
+  ]
+  // ...
+}
+```
+
+### R2 Storage
+
+```jsonc
+{
+  // ...
+  "r2_buckets": [
+    {
+      "binding": "MY_BUCKET",
+      "bucket_name": "my-bucket"
+    }
+  ]
+  // ...
+}
+```
+
+### Queues
+
+```jsonc
+{
+  // ...
+  "queues": {
+    "producers": [
+      {
+        "binding": "MY_QUEUE",
+        "queue": "my-queue"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "my-queue",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "my-dlq"
+      }
+    ]
+  }
+  // ...
+}
+```
+
+### Workflows
+
+```jsonc
+{
+  // ...
+  "workflows": [
+    {
+      "name": "MY_WORKFLOW",
+      "class_name": "MyWorkflow",
+      // Optional: set this if your Workflow is defined in a different project
+      "script_name": "email-workflows"
+    }
+  ]
+  // ...
+}
+```
+
+## Environment Variables and Secrets
+
+You can define environment variables and secrets in your wrangler configuration:
+
+```jsonc
+{
+  // ...
+  "vars": {
+    "PUBLIC_VARIABLE": "public-value"
+  }
+  // ...
+}
+```
+
+For secrets (like API keys), use the Wrangler CLI:
+
+```bash
+npx wrangler secret put OPENAI_API_KEY
+```
+
+Then access them in your Agent:
+
+```ts
+export class MyAgent extends Agent<Env> {
+  async someMethod() {
+    // Access environment variables and secrets
+    const apiKey = this.env.OPENAI_API_KEY;
+    const publicVar = this.env.PUBLIC_VARIABLE;
+  }
+}
+```
+
+## Project Structure
+
+The typical file structure for an Agent project follows:
+
+```
+.
+|-- package.json
+|-- src
+|   `-- index.ts // your Agent definition
+|-- tsconfig.json
+`-- wrangler.jsonc // your Workers & Agent configuration
+```
+
+## Deployment
+
+To deploy your Agent, use the Wrangler CLI:
+
+```bash
+npx wrangler deploy
+```
+
+## Local Development
+
+You can run an Agent locally using the `wrangler` CLI:
+
+```bash
+npx wrangler dev
+```
+
+This spins up a local development server that runs the same runtime as Cloudflare Workers, allowing you to iterate on your Agent's code and test it locally without deploying it.
+
+## Testing
+
+You can test your Agent using Vitest:
+
+```ts
+import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloudflare:test';
+import { describe, it, expect } from 'vitest';
+import worker from '../src';
+import { Env } from '../src';
+
+describe('make a request to my Agent', () => {
+  it('responds with state', async () => {
+    // Provide a valid URL that your Worker can use to route to your Agent
+    const request = new Request('http://example.com/agent/my-agent/agent-123');
+    const ctx = createExecutionContext();
+    const response = await worker.fetch(request, env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(await response.text()).toMatchObject({ hello: 'from your agent' });
+  });
+});
+```
+
+Run tests with:
+
+```bash
+npx vitest
+```
+
+## Limits
+
+Limits that apply to authoring, deploying, and running Agents:
+
+| Feature                                   | Limit         			    |
+| ----------------------------------------- | ----------------------- |
+| Max concurrent (running) Agents per account	| Tens of millions+ |
+| Max definitions per account         | ~250,000+ |
+| Max state stored per unique Agent | 1 GB |
+| Max compute time per Agent | 30 seconds (refreshed per HTTP request / incoming WebSocket message) |
+| Duration (wall clock) per step       | Unlimited (e.g. waiting on a database call or an LLM response) |

@@ -1,0 +1,22 @@
+# What are Agents?
+
+An agent is an AI system that can autonomously execute tasks by making decisions about tool usage and process flow. Unlike traditional automation that follows predefined paths, agents can dynamically adapt their approach based on context and intermediate results. Agents are also distinct from co-pilots (e.g. traditional chat applications) in that they can fully automate a task, as opposed to simply augmenting and extending human input. 
+
+- **Agents** → non-linear, non-deterministic (can change from run to run)
+- **Workflows** → linear, deterministic execution paths
+- **Co-pilots** → augmentative AI assistance requiring human intervention
+
+### Three primary components of agent systems:
+
+- **Decision Engine**: Usually an LLM (Large Language Model) that determines action steps
+- **Tool Integration**: APIs, functions, and services the agent can utilize
+- **Memory System**: Maintains context and tracks task progress
+
+### How agents work
+
+Agents operate in a continuous loop of:
+
+1. **Observing** the current state or task
+2. **Planning** what actions to take, using AI for reasoning
+3. **Executing** those actions using available tools (often APIs or MCPs)
+4. **Learning** from the results (storing results in memory, updating task progress, and preparing for next iteration)

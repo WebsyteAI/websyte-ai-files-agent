@@ -1,0 +1,346 @@
+# AI Model Integration in Agents
+
+Agents can communicate with AI models hosted on any provider, including Workers AI, OpenAI, Anthropic, Google's Gemini, and others. This document shows how to integrate various AI models with your Agents.
+
+## Calling AI Models
+
+You can call models from any method within an Agent, including from HTTP requests, WebSocket messages, scheduled tasks, or any custom method.
+
+### Workers AI Integration
+
+You can use any of the models available in Workers AI within your Agent by configuring a binding:
+
+```ts
+import { Agent } from "agents";
+
+interface Env {
+  AI: Ai;
+}
+
+export class MyAgent extends Agent<Env> {
+  async onRequest(request: Request) {
+    // Extract the prompt from the request
+    const { prompt } = await request.json();
+    
+    // Call Workers AI with streaming enabled
+    const response = await this.env.AI.run(
+      "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+      {
+        prompt,
+        stream: true, // Stream the response
+      }
+    );
+    
+    // Return the streaming response
+    return new Response(response, {
+      headers: { "content-type": "text/event-stream" }
+    });
+  }
+}
+```
+
+Your wrangler configuration will need an `ai` binding:
+
+```jsonc
+{
+  // ...
+  "ai": {
+    "binding": "AI"
+  }
+  // ...
+}
+```
+
+### OpenAI Integration
+
+```ts
+import { Agent } from "agents";
+import { OpenAI } from "openai";
+
+interface Env {
+  OPENAI_API_KEY: string;
+}
+
+export class MyAgent extends Agent<Env> {
+  async onMessage(connection: Connection, message: WSMessage) {
+    if (typeof message !== 'string') return;
+    
+    try {
+      const data = JSON.parse(message);
+      
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: this.env.OPENAI_API_KEY,
+      });
+      
+      // Call the model with streaming
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user", content: data.prompt }
+        ],
+        stream: true,
+      });
+      
+      // Stream the response chunks back to the client
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          connection.send(JSON.stringify({ 
+            type: 'chunk', 
+            content 
+          }));
+        }
+      }
+      
+      // Signal completion
+      connection.send(JSON.stringify({ type: 'complete' }));
+      
+    } catch (error) {
+      connection.send(JSON.stringify({ 
+        type: 'error', 
+        message: error.message 
+      }));
+    }
+  }
+}
+```
+
+### AI SDK Integration
+
+The AI SDK provides a unified API for using AI models:
+
+```ts
+import { Agent } from "agents";
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+interface Env {
+  OPENAI_API_KEY: string;
+}
+
+export class MyAgent extends Agent<Env> {
+  async onRequest(request: Request): Promise<Response> {
+    const { prompt } = await request.json();
+    
+    const { text } = await generateText({
+      model: openai("gpt-4o", { apiKey: this.env.OPENAI_API_KEY }),
+      prompt,
+    });
+    
+    return Response.json({ response: text });
+  }
+}
+```
+
+## Long-Running Model Requests
+
+Modern reasoning models can take time to generate responses. Instead of buffering the entire response, you can stream it back to the client:
+
+### Streaming via HTTP/SSE
+
+```ts
+import { Agent } from "agents";
+import { OpenAI } from "openai";
+
+interface Env {
+  OPENAI_API_KEY: string;
+}
+
+export class MyAgent extends Agent<Env> {
+  async onRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const { prompt } = await request.json();
+    
+    // Create a TransformStream to handle streaming
+    let { readable, writable } = new TransformStream();
+    let writer = writable.getWriter();
+    const textEncoder = new TextEncoder();
+    
+    // Use ctx.waitUntil to run the async function in the background
+    ctx.waitUntil(
+      (async () => {
+        const openai = new OpenAI({
+          apiKey: this.env.OPENAI_API_KEY,
+        });
+        
+        const stream = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: prompt }],
+          stream: true,
+        });
+        
+        // Stream each chunk as it arrives
+        for await (const part of stream) {
+          writer.write(
+            textEncoder.encode(part.choices[0]?.delta?.content || "")
+          );
+        }
+        
+        writer.close();
+      })()
+    );
+    
+    // Return the readable stream
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain" }
+    });
+  }
+}
+```
+
+### Streaming via WebSockets
+
+WebSockets are ideal for long-running model responses:
+
+```ts
+async onMessage(connection: Connection, message: WSMessage) {
+  if (typeof message !== 'string') return;
+  
+  try {
+    const data = JSON.parse(message);
+    
+    // Store the conversation in the Agent's state
+    const messages = [
+      ...(this.state.messages || []),
+      { role: 'user', content: data.prompt }
+    ];
+    
+    this.setState({
+      ...this.state,
+      messages
+    });
+    
+    // Call the AI model
+    const openai = new OpenAI({
+      apiKey: this.env.OPENAI_API_KEY,
+    });
+    
+    const stream = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a helpful assistant." },
+        ...messages
+      ],
+      stream: true,
+    });
+    
+    let fullResponse = '';
+    
+    // Stream each chunk back to the client
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        fullResponse += content;
+        connection.send(JSON.stringify({ 
+          type: 'chunk', 
+          content 
+        }));
+      }
+    }
+    
+    // Update the conversation history with the assistant's response
+    this.setState({
+      ...this.state,
+      messages: [
+        ...messages,
+        { role: 'assistant', content: fullResponse }
+      ]
+    });
+    
+    // Signal completion
+    connection.send(JSON.stringify({ type: 'complete' }));
+    
+  } catch (error) {
+    connection.send(JSON.stringify({ 
+      type: 'error', 
+      message: error.message 
+    }));
+  }
+}
+```
+
+## Combining AI Models with Agent State
+
+One of the most powerful patterns is to combine AI models with the Agent's state management:
+
+```ts
+export class ChatAgent extends Agent<Env, ChatState> {
+  initialState = {
+    messages: [],
+    userPreferences: {
+      model: "gpt-4o",
+      temperature: 0.7
+    }
+  };
+  
+  async onMessage(connection: Connection, message: WSMessage) {
+    if (typeof message !== 'string') return;
+    
+    try {
+      const data = JSON.parse(message);
+      
+      // Add user message to conversation history
+      const messages = [
+        ...this.state.messages,
+        { role: 'user', content: data.prompt }
+      ];
+      
+      // Update state with the new message
+      this.setState({
+        ...this.state,
+        messages
+      });
+      
+      // Call the AI model with the full conversation history
+      const openai = new OpenAI({
+        apiKey: this.env.OPENAI_API_KEY,
+      });
+      
+      const stream = await openai.chat.completions.create({
+        model: this.state.userPreferences.model,
+        temperature: this.state.userPreferences.temperature,
+        messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          ...messages.slice(-10) // Use the last 10 messages for context
+        ],
+        stream: true,
+      });
+      
+      let fullResponse = '';
+      
+      // Stream each chunk back to the client
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          fullResponse += content;
+          connection.send(JSON.stringify({ 
+            type: 'chunk', 
+            content 
+          }));
+        }
+      }
+      
+      // Update the conversation history with the assistant's response
+      this.setState({
+        ...this.state,
+        messages: [
+          ...messages,
+          { role: 'assistant', content: fullResponse }
+        ]
+      });
+      
+      // Signal completion
+      connection.send(JSON.stringify({ type: 'complete' }));
+      
+    } catch (error) {
+      connection.send(JSON.stringify({ 
+        type: 'error', 
+        message: error.message 
+      }));
+    }
+  }
+}
+```
+
+This approach allows your Agent to maintain conversation history, user preferences, and other state that persists across interactions, making for a much more coherent and personalized experience.

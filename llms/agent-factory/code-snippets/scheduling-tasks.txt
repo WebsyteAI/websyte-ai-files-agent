@@ -1,0 +1,343 @@
+# Scheduling Tasks in Agents
+
+An Agent can schedule tasks to be run in the future by calling `this.schedule(when, callback, data)`, where `when` can be a delay, a `Date`, or a cron string; `callback` is the function name to call, and `data` is an object of data to pass to the function.
+
+Scheduled tasks can do anything a request or message from a user can: make requests, query databases, send emails, read+write state. Scheduled tasks can invoke any regular method on your Agent.
+
+## Basic Scheduling
+
+You can call `this.schedule` within any method on an Agent:
+
+```ts
+import { Agent } from "agents";
+
+export class SchedulingAgent extends Agent {
+  async onRequest(request) {
+    // Handle an incoming request
+    // Schedule a task 5 minutes from now
+    // Calls the "checkFlights" method
+    let { taskId } = await this.schedule(300, "checkFlights", { 
+      flight: "DL264", 
+      date: "2025-02-23" 
+    });
+    
+    return Response.json({ taskId });
+  }
+
+  async checkFlights(data) {
+    // Invoked when our scheduled task runs
+    console.log(`Checking flight ${data.flight} for ${data.date}`);
+    
+    // Perform some action, like calling an API
+    const flightStatus = await this.fetchFlightStatus(data.flight, data.date);
+    
+    // Update state with the result
+    this.setState({
+      ...this.state,
+      flights: {
+        ...this.state.flights,
+        [data.flight]: flightStatus
+      }
+    });
+    
+    // We can also schedule another task here if needed
+    if (flightStatus.status === "delayed") {
+      await this.schedule(1800, "notifyUserOfDelay", {
+        flight: data.flight,
+        delay: flightStatus.delayMinutes
+      });
+    }
+  }
+  
+  async notifyUserOfDelay(data) {
+    // Send notification about delay
+    console.log(`Notifying user about delay for flight ${data.flight}: ${data.delay} minutes`);
+    
+    // Implementation would call notification service
+  }
+  
+  async fetchFlightStatus(flightNumber, date) {
+    // Implementation would call flight status API
+    return { status: "on-time", delayMinutes: 0 };
+  }
+}
+```
+
+## Scheduling Options
+
+You can schedule tasks in multiple ways:
+
+```ts
+// Schedule a task to run in 10 seconds
+let task = await this.schedule(10, "someTask", { message: "hello" });
+
+// Schedule a task to run at a specific date
+let task = await this.schedule(new Date("2025-01-01"), "someTask", {});
+
+// Schedule a task to run every 10 seconds (cron expression)
+let { id } = await this.schedule("*/10 * * * * *", "someTask", { message: "hello" });
+
+// Schedule a task to run every day at midnight
+let task = await this.schedule("0 0 * * *", "someTask", { message: "hello" });
+
+// Schedule a task to run every Monday at 9am
+let task = await this.schedule("0 9 * * 1", "dailyReport", { reportType: "weekly" });
+```
+
+Calling `await this.schedule` returns a `Schedule` object, which includes the task's randomly generated `id`. You can use this `id` to retrieve or cancel the task in the future.
+
+## Managing Scheduled Tasks
+
+You can get, cancel, and filter across scheduled tasks within an Agent:
+
+```ts
+export class TaskManager extends Agent {
+  async onRequest(request: Request) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    if (path === "/schedule") {
+      // Schedule a new task
+      const { delay, taskName, data } = await request.json();
+      const task = await this.schedule(delay, taskName, data);
+      return Response.json({ taskId: task.id });
+    }
+    
+    if (path === "/cancel") {
+      // Cancel a task
+      const { taskId } = await request.json();
+      const cancelled = await this.cancelSchedule(taskId);
+      return Response.json({ cancelled });
+    }
+    
+    if (path === "/list") {
+      // List all tasks
+      const tasks = this.getSchedules();
+      return Response.json({ tasks });
+    }
+    
+    if (path === "/get") {
+      // Get a specific task
+      const { taskId } = await request.json();
+      const task = await this.getSchedule(taskId);
+      return Response.json({ task });
+    }
+    
+    if (path === "/upcoming") {
+      // Get tasks scheduled for the next hour
+      const tasks = this.getSchedules({
+        timeRange: {
+          start: new Date(),
+          end: new Date(Date.now() + 60 * 60 * 1000),
+        }
+      });
+      return Response.json({ tasks });
+    }
+    
+    return new Response("Not found", { status: 404 });
+  }
+  
+  // Methods that will be called by scheduled tasks
+  async dailyReport(data) {
+    console.log(`Generating ${data.reportType} report`);
+    // Implementation would generate and send report
+  }
+  
+  async sendReminder(data) {
+    console.log(`Sending reminder to ${data.userId}: ${data.message}`);
+    // Implementation would send reminder
+  }
+}
+```
+
+## Schedule Object
+
+The `Schedule` object returned by `this.schedule` has the following structure:
+
+```ts
+type Schedule<T = any> = {
+  // Unique identifier for the schedule
+  id: string;
+  // Name of the method to be called
+  callback: string;
+  // Data to be passed to the callback
+  payload: T;
+} & (
+  | {
+      // One-time execution at a specific time
+      type: "scheduled";
+      // Timestamp when the task should execute
+      time: number;
+    }
+  | {
+      // Delayed execution after a certain time
+      type: "delayed";
+      // Timestamp when the task should execute
+      time: number;
+      // Number of seconds to delay execution
+      delayInSeconds: number;
+    }
+  | {
+      // Recurring execution based on cron expression
+      type: "cron";
+      // Timestamp for the next execution
+      time: number;
+      // Cron expression defining the schedule
+      cron: string;
+    }
+);
+```
+
+## Common Scheduling Patterns
+
+### Periodic Health Checks
+
+```ts
+export class MonitoringAgent extends Agent {
+  async onStart() {
+    // Schedule a health check every 5 minutes
+    await this.schedule("*/5 * * * *", "healthCheck", {});
+  }
+  
+  async healthCheck(data) {
+    // Check the health of various services
+    const services = ["api", "database", "auth"];
+    
+    for (const service of services) {
+      const status = await this.checkServiceHealth(service);
+      
+      if (status !== "healthy") {
+        // Schedule an alert
+        await this.schedule(0, "sendAlert", {
+          service,
+          status,
+          time: new Date().toISOString()
+        });
+      }
+    }
+  }
+  
+  async sendAlert(data) {
+    // Send alert about service health
+    console.log(`ALERT: ${data.service} is ${data.status} at ${data.time}`);
+    // Implementation would send alert via email, SMS, etc.
+  }
+  
+  async checkServiceHealth(service) {
+    // Implementation would check service health
+    return Math.random() > 0.9 ? "degraded" : "healthy";
+  }
+}
+```
+
+### User Engagement Workflows
+
+```ts
+export class UserEngagementAgent extends Agent {
+  async onRequest(request) {
+    const { userId, action } = await request.json();
+    
+    if (action === "signup") {
+      // Schedule a welcome email immediately
+      await this.schedule(0, "sendWelcomeEmail", { userId });
+      
+      // Schedule a follow-up email after 3 days
+      await this.schedule(3 * 24 * 60 * 60, "sendFollowUpEmail", { userId });
+      
+      // Schedule a check for user activity after 7 days
+      await this.schedule(7 * 24 * 60 * 60, "checkUserActivity", { userId });
+    }
+    
+    return new Response("Engagement workflow started");
+  }
+  
+  async sendWelcomeEmail(data) {
+    console.log(`Sending welcome email to user ${data.userId}`);
+    // Implementation would send email
+  }
+  
+  async sendFollowUpEmail(data) {
+    console.log(`Sending follow-up email to user ${data.userId}`);
+    // Implementation would send email
+  }
+  
+  async checkUserActivity(data) {
+    // Check if the user has been active
+    const activity = await this.getUserActivity(data.userId);
+    
+    if (activity.level === "none") {
+      // User hasn't been active, send re-engagement email
+      await this.schedule(0, "sendReEngagementEmail", { userId: data.userId });
+    } else {
+      // User has been active, schedule a check for premium upgrade opportunity
+      await this.schedule(14 * 24 * 60 * 60, "checkPremiumOpportunity", { userId: data.userId });
+    }
+  }
+  
+  async getUserActivity(userId) {
+    // Implementation would check user activity
+    return { level: Math.random() > 0.5 ? "active" : "none" };
+  }
+}
+```
+
+### Batch Processing
+
+```ts
+export class BatchProcessingAgent extends Agent {
+  async onStart() {
+    // Schedule batch processing every night at 2am
+    await this.schedule("0 2 * * *", "processDailyBatch", {});
+  }
+  
+  async processDailyBatch(data) {
+    console.log("Starting daily batch processing");
+    
+    // Get items to process
+    const items = await this.getItemsToProcess();
+    
+    // Process in smaller batches to avoid timeouts
+    const batchSize = 100;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      
+      // Schedule processing for this batch
+      await this.schedule(0, "processBatch", {
+        batchNumber: Math.floor(i / batchSize) + 1,
+        totalBatches: Math.ceil(items.length / batchSize),
+        items: batch
+      });
+    }
+  }
+  
+  async processBatch(data) {
+    console.log(`Processing batch ${data.batchNumber}/${data.totalBatches}`);
+    
+    // Process each item in the batch
+    for (const item of data.items) {
+      await this.processItem(item);
+    }
+    
+    // If this is the last batch, schedule a completion notification
+    if (data.batchNumber === data.totalBatches) {
+      await this.schedule(0, "notifyBatchCompletion", {
+        totalItems: data.batchNumber * data.items.length
+      });
+    }
+  }
+  
+  async processItem(item) {
+    // Implementation would process a single item
+    console.log(`Processing item ${item.id}`);
+  }
+  
+  async notifyBatchCompletion(data) {
+    console.log(`Batch processing complete. Processed ${data.totalItems} items.`);
+    // Implementation would send notification
+  }
+  
+  async getItemsToProcess() {
+    // Implementation would get items to process
+    return Array.from({ length: 250 }, (_, i) => ({ id: i + 1 }));
+  }
+}
