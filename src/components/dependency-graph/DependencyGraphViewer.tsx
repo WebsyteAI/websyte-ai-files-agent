@@ -154,26 +154,29 @@ function DependencyGraph({ files, onFileSelect }: DependencyGraphViewerProps) {
         </Panel>
       </ReactFlow>
 
-      {/* File content viewer */}
-      {selectedFile && files[selectedFile] && (
-        <div 
-          ref={fileContentRef}
-          className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 shadow-lg z-10 max-h-[50%] overflow-auto"
-        >
-          <div className="sticky top-0 flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 border-b border-gray-300 dark:border-gray-700">
-            <h3 className="text-sm font-medium truncate">{selectedFile}</h3>
-            <button 
-              onClick={closeFileContent}
-              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="p-4">
-            <CodeEditor code={files[selectedFile].content} filename={selectedFile} />
-          </div>
-        </div>
-      )}
+      {/* File content viewer - slides from right */}
+      <div 
+        className={`absolute top-0 right-0 h-full bg-white dark:bg-gray-900 border-l border-gray-300 dark:border-gray-700 shadow-lg z-10 w-[50%] transform transition-transform duration-300 ease-in-out ${
+          selectedFile && files[selectedFile] ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {selectedFile && files[selectedFile] && (
+          <>
+            <div ref={fileContentRef} className="sticky top-0 flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 border-b border-gray-300 dark:border-gray-700">
+              <h3 className="text-sm font-medium truncate">{selectedFile}</h3>
+              <button 
+                onClick={closeFileContent}
+                className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto h-[calc(100%-40px)]">
+              <CodeEditor code={files[selectedFile].content} filename={selectedFile} />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
