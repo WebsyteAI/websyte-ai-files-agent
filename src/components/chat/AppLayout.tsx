@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X } from "@phosphor-icons/react";
+import { ChatCircle, X } from "@phosphor-icons/react";
 import { Button } from "@/components/button/Button";
 import { StoragePanel } from "@/components/storage-panel/StoragePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
@@ -15,7 +15,7 @@ import {
 } from "@/components/drawer";
 
 interface AppLayoutProps {
-  children: React.ReactNode;
+  chatPanel: React.ReactNode;
   isTimelineOpen: boolean;
   setIsTimelineOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStoragePanelOpen: boolean;
@@ -29,7 +29,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({
-  children,
+  chatPanel,
   isTimelineOpen,
   setIsTimelineOpen,
   isStoragePanelOpen,
@@ -41,25 +41,47 @@ export function AppLayout({
   fetchCommitHistory,
   revertToCommit
 }: AppLayoutProps) {
+  const [isChatVisible, setIsChatVisible] = useState(true);
   return (
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
-      <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[100dvh] mx-auto relative">
-        {/* Chat Panel */}
-        <div className="h-full md:w-1/3 w-full flex-shrink-0 flex flex-col shadow-xl rounded-md overflow-hidden relative">
-          {children}
+      <div className="w-full h-[100dvh] mx-auto flex">
+        {/* Sliding Chat Panel */}
+        <div 
+          className={`h-full transition-all duration-300 ease-in-out ${
+            isChatVisible 
+              ? isMobile 
+                ? 'w-full absolute inset-0 z-50' 
+                : 'w-[550px]' 
+              : 'w-[0px]'
+          }`}
+        >
+          <div className="w-full h-full flex flex-col relative">
+            {isChatVisible && (
+              <div className="w-full h-full">
+                {chatPanel}
+              </div>
+            )}
+            
+          </div>
         </div>
 
-        {/* Removed desktop timeline panel as it's now in a drawer */}
-
-        {/* Storage Panel - Desktop */}
-        <div className="h-full flex-1 hidden md:flex flex-col">
+        {/* Storage Panel - Resizable */}
+        <div className="h-full flex-1 flex flex-col relative">
           <StoragePanel
             agentState={agentState}
             loading={agentStateLoading}
           />
+          {/* Chat Toggle Button */}
+          <button
+            onClick={() => setIsChatVisible(!isChatVisible)}
+            className={`absolute bottom-4 ${isMobile ? 'right-4' : 'left-4'} bg-[#F48120] hover:bg-[#F48120]/90 text-white p-3 rounded-full shadow-lg z-50 transition-all`}
+            title={isChatVisible ? "Hide chat" : "Show chat"}
+          >
+            {isChatVisible ? <X size={24} /> : <ChatCircle size={24} />}
+          </button>
         </div>
         
-        {/* Storage Panel - Mobile (Drawer) */}
+        {/* Storage Panel - Mobile Only (Drawer) */}
         <Drawer open={isStoragePanelOpen && isMobile} onOpenChange={setIsStoragePanelOpen}>
           <DrawerContent className="h-[100dvh] flex flex-col">
             <DrawerHeader>
@@ -67,10 +89,10 @@ export function AppLayout({
             </DrawerHeader>
             <ScrollArea className="h-full">
               <div className="px-4">
-              <StoragePanel
-                agentState={agentState}
-                loading={agentStateLoading}
-              />
+                <StoragePanel
+                  agentState={agentState}
+                  loading={agentStateLoading}
+                />
               </div>
             </ScrollArea>
             <DrawerFooter className="flex-shrink-0 mt-auto">

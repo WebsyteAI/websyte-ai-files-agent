@@ -30,7 +30,7 @@ export function FileViewer({ files }: FileViewerProps) {
   
   return (
     <div className="flex flex-col h-full">
-      <div className="flex justify-end mb-4 gap-2">
+      <div className="flex justify-center mb-4 gap-2">
         <Button
           variant={viewMode === "list" ? "primary" : "secondary"}
           size="sm"

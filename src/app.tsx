@@ -6,9 +6,7 @@ import { APPROVAL } from "../server/shared";
 import type { tools } from "../server/tools";
 
 // Component imports
-import { ChatHeader } from "@/components/chat/ChatHeader";
-import { ChatMessages } from "@/components/chat/ChatMessages";
-import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 import { AppLayout } from "@/components/chat/AppLayout";
 
 // List of tools that require human confirmation
@@ -239,6 +237,31 @@ export default function Chat() {
 
   return (
     <AppLayout
+      chatPanel={
+        <ChatPanel
+          showDebug={showDebug}
+          setShowDebug={setShowDebug}
+          setIsTimelineOpen={setIsTimelineOpen}
+          setIsStoragePanelOpen={setIsStoragePanelOpen}
+          clearHistory={clearHistory}
+          messages={agentMessages}
+          addToolResult={addToolResult}
+          messagesEndRef={messagesEndRef}
+          isLoading={isProcessing || isLoading}
+          input={agentInput}
+          handleInputChange={handleAgentInputChange}
+          handleSubmit={(e, options) => {
+            setIsProcessing(true);
+            // Use setTimeout to ensure isProcessing is set to false after the message is processed
+            handleAgentSubmit(e, options);
+            // Set a timeout to turn off the loading state after a short delay
+            setTimeout(() => {
+              setIsProcessing(false);
+            }, 500);
+          }}
+          pendingToolCallConfirmation={pendingToolCallConfirmation}
+        />
+      }
       isTimelineOpen={isTimelineOpen}
       setIsTimelineOpen={setIsTimelineOpen}
       isStoragePanelOpen={isStoragePanelOpen}
@@ -249,38 +272,6 @@ export default function Chat() {
       commitHistoryLoading={commitHistoryLoading}
       fetchCommitHistory={fetchCommitHistory}
       revertToCommit={revertToCommit}
-    >
-      <ChatHeader
-        showDebug={showDebug}
-        setShowDebug={setShowDebug}
-        setIsTimelineOpen={setIsTimelineOpen}
-        setIsStoragePanelOpen={setIsStoragePanelOpen}
-        clearHistory={clearHistory}
-      />
-      
-      <ChatMessages
-        messages={agentMessages}
-        showDebug={showDebug}
-        addToolResult={addToolResult}
-        messagesEndRef={messagesEndRef}
-        isLoading={isProcessing || isLoading}
-      />
-      
-      <ChatInput
-        input={agentInput}
-        handleInputChange={handleAgentInputChange}
-        handleSubmit={(e, options) => {
-          setIsProcessing(true);
-          // Use setTimeout to ensure isProcessing is set to false after the message is processed
-          handleAgentSubmit(e, options);
-          // Set a timeout to turn off the loading state after a short delay
-          setTimeout(() => {
-            setIsProcessing(false);
-          }, 500);
-        }}
-        pendingToolCallConfirmation={pendingToolCallConfirmation}
-        isLoading={isProcessing || isLoading}
-      />
-    </AppLayout>
+    />
   );
 }
