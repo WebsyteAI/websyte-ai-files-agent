@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileContentsViewer } from "@/components/file-contents-viewer/FileContentsViewer";
 import { DependencyGraphViewer } from "@/components/dependency-graph/DependencyGraphViewer";
+import { PromptFlowBoard } from "@/components/prompt-flow/PromptFlowBoard";
 import { Button } from "@/components/button/Button";
 import { ListBullets, Graph } from "@phosphor-icons/react";
 
@@ -14,10 +15,12 @@ interface FileData {
 
 interface FileViewerProps {
   files: Record<string, FileData>;
-  viewMode?: "list" | "graph";
+  viewMode?: "list" | "graph" | "board";
+  agentState?: any;
+  onUpdateAgentState?: (newState: any) => void;
 }
 
-export function FileViewer({ files, viewMode = "list" }: FileViewerProps) {
+export function FileViewer({ files, viewMode = "list", agentState, onUpdateAgentState }: FileViewerProps) {
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   
@@ -37,7 +40,7 @@ export function FileViewer({ files, viewMode = "list" }: FileViewerProps) {
             expandedFiles={expandedFiles}
             toggleFileExpansion={toggleFileExpansion}
           />
-        ) : (
+        ) : viewMode === "graph" ? (
           <DependencyGraphViewer 
             files={files} 
             onFileSelect={(filePath: string) => {
@@ -49,6 +52,22 @@ export function FileViewer({ files, viewMode = "list" }: FileViewerProps) {
               }));
             }}
           />
+        ) : (
+          // Board view
+          <div className="h-full p-4">
+            {agentState && onUpdateAgentState && (
+              <PromptFlowBoard
+                promptFlow={agentState.promptFlow || { mainIdea: 'My AI Agent', tasks: [] }}
+                onPromptFlowChange={(updatedFlow) => {
+                  onUpdateAgentState({
+                    ...agentState,
+                    promptFlow: updatedFlow,
+                  });
+                }}
+                className="h-full"
+              />
+            )}
+          </div>
         )}
       </div>
     </div>

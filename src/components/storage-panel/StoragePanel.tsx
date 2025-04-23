@@ -12,6 +12,7 @@ import {
   ListBullets,
   Graph,
   X,
+  FlowArrow,
 } from "@phosphor-icons/react";
 import { FileViewer } from "@/components/file-viewer/FileViewer";
 
@@ -65,12 +66,14 @@ interface StoragePanelProps {
   agentState: AgentState | null;
   loading: boolean;
   onToggle?: () => void;
+  onUpdateAgentState?: (newState: any) => void;
 }
 
 export function StoragePanel({
   agentState,
   loading,
   onToggle,
+  onUpdateAgentState,
 }: StoragePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
@@ -78,7 +81,7 @@ export function StoragePanel({
   const [isFetchingStatus, setIsFetchingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const initialFetchDone = useRef(false);
-  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+  const [viewMode, setViewMode] = useState<"list" | "graph" | "board">("list");
 
   // Initialize all files as expanded by default
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(
@@ -296,6 +299,15 @@ export function StoragePanel({
             <Graph size={16} />
             <span>Dependency Graph</span>
           </Button>
+          <Button
+            variant={viewMode === "board" ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setViewMode("board")}
+            className="flex items-center gap-2"
+          >
+            <FlowArrow size={16} />
+            <span>Prompt Flow</span>
+          </Button>
         </div>
 
         {/* Right side: Buttons */}
@@ -380,6 +392,8 @@ export function StoragePanel({
           <FileViewer
             files={agentState.files}
             viewMode={viewMode}
+            agentState={agentState}
+            onUpdateAgentState={onUpdateAgentState}
           />
         ) : (
           <div className="text-center text-neutral-500 p-4 text-base">

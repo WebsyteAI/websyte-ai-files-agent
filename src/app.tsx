@@ -21,6 +21,7 @@ export default function Chat() {
   // Separate states for panel visibility
   const [isTimelineOpen, setIsTimelineOpen] = useState(false); // Combined mobile/desktop state initially false
   const [isStoragePanelOpen, setIsStoragePanelOpen] = useState(false); // Combined mobile/desktop state initially false
+  const [isPromptFlowOpen, setIsPromptFlowOpen] = useState(false); // State for prompt flow panel
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
   const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
   const [commitHistoryLoading, setCommitHistoryLoading] = useState(false);
@@ -243,6 +244,7 @@ export default function Chat() {
           setShowDebug={setShowDebug}
           setIsTimelineOpen={setIsTimelineOpen}
           setIsStoragePanelOpen={setIsStoragePanelOpen}
+          setIsPromptFlowOpen={setIsPromptFlowOpen}
           clearHistory={clearHistory}
           messages={agentMessages}
           addToolResult={addToolResult}
@@ -266,12 +268,18 @@ export default function Chat() {
       setIsTimelineOpen={setIsTimelineOpen}
       isStoragePanelOpen={isStoragePanelOpen}
       setIsStoragePanelOpen={setIsStoragePanelOpen}
+      isPromptFlowOpen={isPromptFlowOpen}
+      setIsPromptFlowOpen={setIsPromptFlowOpen}
       isMobile={isMobile}
       agentState={agentState}
       agentStateLoading={agentStateLoading}
       commitHistoryLoading={commitHistoryLoading}
       fetchCommitHistory={fetchCommitHistory}
       revertToCommit={revertToCommit}
+      onUpdateAgentState={(newState) => {
+        console.log("Updating agent state:", newState);
+        agent.setState(newState);
+      }}
     />
   );
 }

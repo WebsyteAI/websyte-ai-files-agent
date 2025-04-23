@@ -5,7 +5,8 @@ import {
   Bug, 
   GitCommit, 
   Trash,
-  X
+  X,
+  FlowArrow
 } from "@phosphor-icons/react";
 
 interface ChatHeaderProps {
@@ -13,6 +14,7 @@ interface ChatHeaderProps {
   setShowDebug: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTimelineOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsStoragePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsPromptFlowOpen: React.Dispatch<React.SetStateAction<boolean>>;
   clearHistory: () => void;
 }
 
@@ -21,6 +23,7 @@ export function ChatHeader({
   setShowDebug,
   setIsTimelineOpen,
   setIsStoragePanelOpen,
+  setIsPromptFlowOpen,
   clearHistory
 }: ChatHeaderProps) {
   return (
@@ -36,6 +39,17 @@ export function ChatHeader({
           onClick={() => setShowDebug((prev) => !prev)}
         />
       </div>
+
+      <Button
+        variant="ghost"
+        size="md"
+        shape="square"
+        className="rounded-full h-9 w-9"
+        onClick={() => setIsPromptFlowOpen((prev) => !prev)}
+        title="Toggle Prompt Flow"
+      >
+        <FlowArrow size={20} />
+      </Button>
 
       <Button
         variant="ghost"

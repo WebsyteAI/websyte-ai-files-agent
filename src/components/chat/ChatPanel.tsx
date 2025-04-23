@@ -9,6 +9,7 @@ interface ChatPanelProps {
   setShowDebug: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTimelineOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsStoragePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsPromptFlowOpen: React.Dispatch<React.SetStateAction<boolean>>;
   clearHistory: () => void;
   messages: Message[];
   addToolResult: (result: { toolCallId: string; result: string }) => void;
@@ -25,6 +26,7 @@ export function ChatPanel({
   setShowDebug,
   setIsTimelineOpen,
   setIsStoragePanelOpen,
+  setIsPromptFlowOpen,
   clearHistory,
   messages,
   addToolResult,
@@ -43,6 +45,7 @@ export function ChatPanel({
           setShowDebug={setShowDebug}
           setIsTimelineOpen={setIsTimelineOpen}
           setIsStoragePanelOpen={setIsStoragePanelOpen}
+          setIsPromptFlowOpen={setIsPromptFlowOpen}
           clearHistory={clearHistory}
         />
       </div>

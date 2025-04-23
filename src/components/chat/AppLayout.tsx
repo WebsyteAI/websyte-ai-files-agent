@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { ChatCircle, X } from "@phosphor-icons/react";
+import { ChatCircle, X, FlowArrow } from "@phosphor-icons/react";
 import { Button } from "@/components/button/Button";
 import { StoragePanel } from "@/components/storage-panel/StoragePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
+import { PromptFlowPanel } from "@/components/prompt-flow/PromptFlowPanel";
 import { ScrollArea } from "@/components/scroll-area";
 import {
   Drawer,
@@ -20,12 +21,15 @@ interface AppLayoutProps {
   setIsTimelineOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStoragePanelOpen: boolean;
   setIsStoragePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isPromptFlowOpen: boolean;
+  setIsPromptFlowOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMobile: boolean;
   agentState: any | null;
   agentStateLoading: boolean;
   commitHistoryLoading: boolean;
   fetchCommitHistory: () => void;
   revertToCommit: (sha: string) => void;
+  onUpdateAgentState?: (newState: any) => void;
 }
 
 export function AppLayout({
@@ -34,14 +38,24 @@ export function AppLayout({
   setIsTimelineOpen,
   isStoragePanelOpen,
   setIsStoragePanelOpen,
+  isPromptFlowOpen,
+  setIsPromptFlowOpen,
   isMobile,
   agentState,
   agentStateLoading,
   commitHistoryLoading,
   fetchCommitHistory,
-  revertToCommit
+  revertToCommit,
+  onUpdateAgentState
 }: AppLayoutProps) {
   const [isChatVisible, setIsChatVisible] = useState(true);
+  
+  // Handle agent state updates
+  const handleUpdateAgentState = (newState: any) => {
+    if (onUpdateAgentState) {
+      onUpdateAgentState(newState);
+    }
+  };
   return (
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
       <div className="w-full h-[100dvh] mx-auto flex">
@@ -70,6 +84,7 @@ export function AppLayout({
           <StoragePanel
             agentState={agentState}
             loading={agentStateLoading}
+            onUpdateAgentState={handleUpdateAgentState}
           />
           {/* Chat Toggle Button */}
           <button
@@ -102,6 +117,7 @@ export function AppLayout({
                   agentState={agentState}
                   loading={agentStateLoading}
                   onToggle={() => setIsStoragePanelOpen(false)}
+                  onUpdateAgentState={handleUpdateAgentState}
                 />
               </div>
             </div>
@@ -131,6 +147,28 @@ export function AppLayout({
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
+        
+        {/* Prompt Flow Panel - Drawer (for both mobile and desktop) */}
+        <Drawer open={isPromptFlowOpen} onOpenChange={setIsPromptFlowOpen}>
+          <DrawerContent className="h-[100dvh] flex flex-col">
+            <PromptFlowPanel
+              isOpen={isPromptFlowOpen}
+              setIsOpen={setIsPromptFlowOpen}
+              agentState={agentState}
+              onUpdateAgentState={handleUpdateAgentState}
+              isMobile={isMobile}
+            />
+          </DrawerContent>
+        </Drawer>
+        
+        {/* Prompt Flow Toggle Button */}
+        <button
+          onClick={() => setIsPromptFlowOpen(!isPromptFlowOpen)}
+          className={`absolute bottom-4 right-4 ${isChatVisible ? 'hidden' : ''} bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg z-50 transition-all`}
+          title="Toggle Prompt Flow"
+        >
+          <FlowArrow size={24} />
+        </button>
       </div>
     </div>
   );
