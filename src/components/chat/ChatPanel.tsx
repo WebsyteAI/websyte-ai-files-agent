@@ -36,7 +36,7 @@ export function ChatPanel({
   pendingToolCallConfirmation
 }: ChatPanelProps) {
   return (
-    <div className="flex flex-col h-full bg-background/95 backdrop-blur-sm shadow-xl md:rounded-r-lg overflow-hidden border-r border-y border-neutral-200 dark:border-neutral-800 transition-all">
+    <div className="flex flex-col h-full bg-background/95 backdrop-blur-sm overflow-hidden border-r border-neutral-200 dark:border-neutral-800 transition-all">
       <div className="flex items-center justify-between px-4">
         <ChatHeader
           showDebug={showDebug}

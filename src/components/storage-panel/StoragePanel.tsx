@@ -352,17 +352,13 @@ export function StoragePanel({
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin h-6 w-6 border-2 border-[#F48120] border-t-transparent rounded-full"></div>
           </div>
+        ) : agentState?.files && Object.keys(agentState.files).length > 0 ? (
+          <FileViewer
+            files={agentState.files}
+          />
         ) : (
-          <div>
-            {agentState?.files && Object.keys(agentState.files).length > 0 ? (
-              <FileViewer
-                files={agentState.files}
-              />
-            ) : (
-              <div className="text-center text-neutral-500 p-4 text-base">
-                No files available
-              </div>
-            )}
+          <div className="text-center text-neutral-500 p-4 text-base">
+            No files available
           </div>
         )}
       </div>
