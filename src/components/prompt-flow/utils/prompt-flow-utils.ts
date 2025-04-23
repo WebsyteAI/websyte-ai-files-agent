@@ -14,13 +14,6 @@ export interface PromptFlow {
   tasks: AgentTask[];
 }
 
-// Column positions for the kanban board
-const COLUMN_POSITIONS = {
-  todo: 0,
-  inProgress: 300,
-  done: 600,
-};
-
 // Generate nodes from tasks
 export const generateNodes = (tasks: AgentTask[], mainIdea: string): Node[] => {
   const nodes: Node[] = [];
@@ -33,10 +26,20 @@ export const generateNodes = (tasks: AgentTask[], mainIdea: string): Node[] => {
     data: { label: mainIdea },
   });
   
+  // Calculate positions in a grid layout
+  const GRID_COLUMNS = 3;
+  const COLUMN_WIDTH = 300;
+  const ROW_HEIGHT = 150;
+  const HORIZONTAL_SPACING = 50;
+  const VERTICAL_SPACING = 30;
+  
   // Add task nodes
   tasks.forEach((task, index) => {
-    const xPosition = COLUMN_POSITIONS[task.status];
-    const yPosition = 150 + (index % 5) * 120; // Stagger nodes within columns
+    const column = index % GRID_COLUMNS;
+    const row = Math.floor(index / GRID_COLUMNS);
+    
+    const xPosition = column * (COLUMN_WIDTH + HORIZONTAL_SPACING);
+    const yPosition = 150 + row * (ROW_HEIGHT + VERTICAL_SPACING);
     
     nodes.push({
       id: task.id,

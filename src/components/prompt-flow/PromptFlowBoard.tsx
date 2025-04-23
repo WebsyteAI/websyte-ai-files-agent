@@ -22,6 +22,7 @@ import {
   generateTaskId,
   TASK_CATEGORIES
 } from './utils/prompt-flow-utils';
+import { Button } from '@/components/button/Button';
 
 // Define custom node types
 const nodeTypes: NodeTypes = {
@@ -42,6 +43,9 @@ export function PromptFlowBoard({
 }: PromptFlowBoardProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   
+  // Add filter state
+  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'inProgress' | 'done'>('all');
+  
   // Initialize nodes and edges from promptFlow
   const [nodes, setNodes, onNodesChange] = useNodesState(
     generateNodes(promptFlow.tasks, promptFlow.mainIdea)
@@ -49,12 +53,6 @@ export function PromptFlowBoard({
   const [edges, setEdges, onEdgesChange] = useEdgesState(
     generateEdges(promptFlow.tasks)
   );
-  
-  // Update nodes and edges when promptFlow changes
-  useEffect(() => {
-    setNodes(generateNodes(promptFlow.tasks, promptFlow.mainIdea));
-    setEdges(generateEdges(promptFlow.tasks));
-  }, [promptFlow, setNodes, setEdges]);
   
   // Handle task status change
   const handleTaskStatusChange = useCallback((taskId: string, newStatus: 'todo' | 'inProgress' | 'done') => {
@@ -64,6 +62,27 @@ export function PromptFlowBoard({
       tasks: updatedTasks,
     });
   }, [promptFlow, onPromptFlowChange]);
+  
+  // Update nodes and edges when promptFlow changes or filter changes
+  useEffect(() => {
+    // Filter tasks based on status filter
+    const filteredTasks = statusFilter === 'all' 
+      ? promptFlow.tasks 
+      : promptFlow.tasks.filter(task => task.status === statusFilter);
+    
+    // Generate nodes with the status change handler
+    const newNodes = generateNodes(filteredTasks, promptFlow.mainIdea);
+    
+    // Add the status change handler to each task node
+    newNodes.forEach(node => {
+      if (node.type === 'taskNode') {
+        node.data.onStatusChange = handleTaskStatusChange;
+      }
+    });
+    
+    setNodes(newNodes);
+    setEdges(generateEdges(filteredTasks));
+  }, [promptFlow, statusFilter, setNodes, setEdges, handleTaskStatusChange]);
   
   // Handle edge connections
   const onConnect = useCallback(
@@ -102,21 +121,12 @@ export function PromptFlowBoard({
     [promptFlow, onPromptFlowChange, edges, setEdges]
   );
   
-  // Column headers for the kanban board
-  const renderColumnHeaders = () => {
-    return (
-      <div className="absolute top-0 left-0 right-0 flex justify-between px-4 py-2 z-10 pointer-events-none">
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-t-lg px-4 py-2 font-medium text-sm w-[250px] text-center">
-          To Do
-        </div>
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-t-lg px-4 py-2 font-medium text-sm w-[250px] text-center">
-          In Progress
-        </div>
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-t-lg px-4 py-2 font-medium text-sm w-[250px] text-center">
-          Done
-        </div>
-      </div>
-    );
+  // Count tasks by status
+  const taskCounts = {
+    todo: promptFlow.tasks.filter(task => task.status === 'todo').length,
+    inProgress: promptFlow.tasks.filter(task => task.status === 'inProgress').length,
+    done: promptFlow.tasks.filter(task => task.status === 'done').length,
+    all: promptFlow.tasks.length
   };
   
   return (
@@ -133,15 +143,52 @@ export function PromptFlowBoard({
             fitView
             attributionPosition="bottom-left"
           >
-            {renderColumnHeaders()}
             <Controls />
             <MiniMap />
             <Background gap={12} size={1} />
             
-            {/* Add task button */}
-            <Panel position="top-right">
-              <button
-                className="px-3 py-2 bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-600 transition-colors"
+            {/* Filter and Add Task Panel */}
+            <Panel position="top-right" className="flex flex-col gap-2">
+              {/* Status Filter */}
+              <div className="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-md shadow-sm">
+                <Button
+                  variant={statusFilter === 'all' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setStatusFilter('all')}
+                  className="text-xs"
+                >
+                  All ({taskCounts.all})
+                </Button>
+                <Button
+                  variant={statusFilter === 'todo' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setStatusFilter('todo')}
+                  className="text-xs"
+                >
+                  To Do ({taskCounts.todo})
+                </Button>
+                <Button
+                  variant={statusFilter === 'inProgress' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setStatusFilter('inProgress')}
+                  className="text-xs"
+                >
+                  In Progress ({taskCounts.inProgress})
+                </Button>
+                <Button
+                  variant={statusFilter === 'done' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setStatusFilter('done')}
+                  className="text-xs"
+                >
+                  Done ({taskCounts.done})
+                </Button>
+              </div>
+              
+              {/* Add Task Button */}
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => {
                   // Create a new task
                   const newTask: AgentTask = {
@@ -160,7 +207,7 @@ export function PromptFlowBoard({
                 }}
               >
                 Add Task
-              </button>
+              </Button>
             </Panel>
           </ReactFlow>
         </div>

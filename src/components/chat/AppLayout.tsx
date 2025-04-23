@@ -148,27 +148,7 @@ export function AppLayout({
           </DrawerContent>
         </Drawer>
         
-        {/* Prompt Flow Panel - Drawer (for both mobile and desktop) */}
-        <Drawer open={isPromptFlowOpen} onOpenChange={setIsPromptFlowOpen}>
-          <DrawerContent className="h-[100dvh] flex flex-col">
-            <PromptFlowPanel
-              isOpen={isPromptFlowOpen}
-              setIsOpen={setIsPromptFlowOpen}
-              agentState={agentState}
-              onUpdateAgentState={handleUpdateAgentState}
-              isMobile={isMobile}
-            />
-          </DrawerContent>
-        </Drawer>
-        
-        {/* Prompt Flow Toggle Button */}
-        <button
-          onClick={() => setIsPromptFlowOpen(!isPromptFlowOpen)}
-          className={`absolute bottom-4 right-4 ${isChatVisible ? 'hidden' : ''} bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg z-50 transition-all`}
-          title="Toggle Prompt Flow"
-        >
-          <FlowArrow size={24} />
-        </button>
+        {/* Timeline Panel - Drawer (for both mobile and desktop) */}
       </div>
     </div>
   );

@@ -5,8 +5,7 @@ import {
   Bug, 
   GitCommit, 
   Trash,
-  X,
-  FlowArrow
+  X
 } from "@phosphor-icons/react";
 
 interface ChatHeaderProps {
@@ -40,16 +39,6 @@ export function ChatHeader({
         />
       </div>
 
-      <Button
-        variant="ghost"
-        size="md"
-        shape="square"
-        className="rounded-full h-9 w-9"
-        onClick={() => setIsPromptFlowOpen((prev) => !prev)}
-        title="Toggle Prompt Flow"
-      >
-        <FlowArrow size={20} />
-      </Button>
 
       <Button
         variant="ghost"
