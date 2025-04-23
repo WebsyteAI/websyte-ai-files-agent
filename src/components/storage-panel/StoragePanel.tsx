@@ -11,6 +11,7 @@ import {
   Check,
   ListBullets,
   Graph,
+  X,
 } from "@phosphor-icons/react";
 import { FileViewer } from "@/components/file-viewer/FileViewer";
 
@@ -262,8 +263,7 @@ export function StoragePanel({
 
   return (
     <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
-      {/* Add padding-right on mobile (pr-12) to avoid overlap with the absolute 'X' button from app.tsx */}
-      <div className="px-4 pr-12 md:pr-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-4 sticky top-0 z-10">
+      <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-4 sticky top-0 z-10">
         {/* Left side: Title */}
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center h-8 w-8 flex-shrink-0">
@@ -300,16 +300,28 @@ export function StoragePanel({
 
         {/* Right side: Buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Close button for mobile */}
           {onToggle && (
-            <Button
-              variant="ghost"
-              size="sm"
-              shape="square"
-              className="rounded-full h-9 w-9 md:hidden"
-              onClick={onToggle}
-            >
-              <ArrowsHorizontal size={20} />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                shape="square"
+                className="rounded-full h-9 w-9 md:hidden"
+                onClick={onToggle}
+              >
+                <X size={20} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                shape="square"
+                className="rounded-full h-9 w-9 md:hidden"
+                onClick={onToggle}
+              >
+                <ArrowsHorizontal size={20} />
+              </Button>
+            </>
           )}
           <div className="flex items-center gap-2">
             <Button

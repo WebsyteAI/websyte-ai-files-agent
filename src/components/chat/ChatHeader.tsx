@@ -4,7 +4,8 @@ import { Toggle } from "@/components/toggle/Toggle";
 import { 
   Bug, 
   GitCommit, 
-  Trash 
+  Trash,
+  X
 } from "@phosphor-icons/react";
 
 interface ChatHeaderProps {
@@ -57,6 +58,17 @@ export function ChatHeader({
         title="Clear Chat History"
       >
         <Trash size={20} />
+      </Button>
+      
+      <Button
+        variant="ghost"
+        size="md"
+        shape="square"
+        className="rounded-full h-9 w-9 md:hidden"
+        onClick={() => setIsStoragePanelOpen(true)}
+        title="Close Chat"
+      >
+        <X size={20} />
       </Button>
     </div>
   );

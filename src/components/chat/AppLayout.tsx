@@ -81,27 +81,32 @@ export function AppLayout({
           </button>
         </div>
         
-        {/* Storage Panel - Mobile Only (Drawer) */}
-        <Drawer open={isStoragePanelOpen && isMobile} onOpenChange={setIsStoragePanelOpen}>
-          <DrawerContent className="h-[100dvh] flex flex-col">
-            <DrawerHeader>
-              <DrawerTitle>Storage Panel</DrawerTitle>
-            </DrawerHeader>
-            <ScrollArea className="h-full">
-              <div className="px-4">
+        {/* Storage Panel - Mobile Only */}
+        {isStoragePanelOpen && isMobile && (
+          <div className="fixed inset-0 z-50 bg-background">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 border-b">
+                <h2 className="font-semibold text-base">Storage Panel</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  shape="square"
+                  className="rounded-full h-9 w-9"
+                  onClick={() => setIsStoragePanelOpen(false)}
+                >
+                  <X size={20} />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-auto">
                 <StoragePanel
                   agentState={agentState}
                   loading={agentStateLoading}
+                  onToggle={() => setIsStoragePanelOpen(false)}
                 />
               </div>
-            </ScrollArea>
-            <DrawerFooter className="flex-shrink-0 mt-auto">
-              <DrawerClose asChild>
-                <Button variant="secondary">Close</Button>
-              </DrawerClose>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
+            </div>
+          </div>
+        )}
         
         {/* Timeline Panel - Drawer (for both mobile and desktop) */}
         <Drawer open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
