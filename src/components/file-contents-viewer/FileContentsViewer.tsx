@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, CaretDown, CaretRight } from "@phosphor-icons/react";
+import { Copy, Check, CaretDown, CaretRight, X } from "@phosphor-icons/react";
 import { CodeEditor } from "@/components/code-editor/CodeEditor";
 
 // Define the file structure
@@ -14,12 +14,14 @@ interface FileContentsViewerProps {
   files: Record<string, FileData>;
   expandedFiles: Record<string, boolean>;
   toggleFileExpansion: (path: string) => void;
+  onClose?: () => void;
 }
 
 export function FileContentsViewer({ 
   files, 
   expandedFiles, 
-  toggleFileExpansion 
+  toggleFileExpansion,
+  onClose
 }: FileContentsViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
   
@@ -51,26 +53,40 @@ export function FileContentsViewer({
               <span className="text-white">{path}</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyFileContent(path, fileData.content);
-                }}
-                title="Copy file content"
-              >
-                {copiedFile === path ? (
-                  <Check size={16} className="text-green-500" />
-                ) : (
-                  <Copy size={16} />
+              <div className="flex items-center gap-1">
+                <button
+                  className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyFileContent(path, fileData.content);
+                  }}
+                  title="Copy file content"
+                >
+                  {copiedFile === path ? (
+                    <Check size={16} className="text-green-500" />
+                  ) : (
+                    <Copy size={16} />
+                  )}
+                </button>
+                {onClose && (
+                  <button
+                    className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClose();
+                    }}
+                    title="Close file viewer"
+                  >
+                    <X size={16} />
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           </div>
           {expandedFiles[path] && (
             <>
-              <div className="px-0">
-                <div className="code-editor bg-neutral-50 dark:bg-neutral-900 overflow-auto border border-neutral-200 dark:border-neutral-800 rounded-sm text-xs md:text-sm">
+              <div className="px-0 h-full">
+                <div className="code-editor bg-neutral-50 dark:bg-neutral-900 overflow-auto border border-neutral-200 dark:border-neutral-800 rounded-sm text-xs md:text-sm h-full max-h-[calc(100vh-200px)]">
                   <CodeEditor code={fileData.content} filename={path} />
                 </div>
               </div>

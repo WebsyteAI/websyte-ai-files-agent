@@ -14,10 +14,10 @@ interface FileData {
 
 interface FileViewerProps {
   files: Record<string, FileData>;
+  viewMode?: "list" | "graph";
 }
 
-export function FileViewer({ files }: FileViewerProps) {
-  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+export function FileViewer({ files, viewMode = "list" }: FileViewerProps) {
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   
@@ -30,27 +30,6 @@ export function FileViewer({ files }: FileViewerProps) {
   
   return (
     <div className="flex flex-col h-full">
-      <div className="flex justify-center mb-4 gap-2">
-        <Button
-          variant={viewMode === "list" ? "primary" : "secondary"}
-          size="sm"
-          onClick={() => setViewMode("list")}
-          className="flex items-center gap-2"
-        >
-          <ListBullets size={16} />
-          <span>List View</span>
-        </Button>
-        <Button
-          variant={viewMode === "graph" ? "primary" : "secondary"}
-          size="sm"
-          onClick={() => setViewMode("graph")}
-          className="flex items-center gap-2"
-        >
-          <Graph size={16} />
-          <span>Dependency Graph</span>
-        </Button>
-      </div>
-      
       <div className="flex-1">
         {viewMode === "list" ? (
           <FileContentsViewer 

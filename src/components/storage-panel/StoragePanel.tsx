@@ -9,6 +9,8 @@ import {
   ArrowsHorizontal,
   GithubLogo,
   Check,
+  ListBullets,
+  Graph,
 } from "@phosphor-icons/react";
 import { FileViewer } from "@/components/file-viewer/FileViewer";
 
@@ -75,6 +77,7 @@ export function StoragePanel({
   const [isFetchingStatus, setIsFetchingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const initialFetchDone = useRef(false);
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
 
   // Initialize all files as expanded by default
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(
@@ -260,31 +263,43 @@ export function StoragePanel({
   return (
     <Card className="h-full w-full flex flex-col overflow-hidden shadow-xl rounded-md border border-neutral-300 dark:border-neutral-800 bg-black">
       {/* Add padding-right on mobile (pr-12) to avoid overlap with the absolute 'X' button from app.tsx */}
-      {/* Removed justify-between, added flex-1 to title container */}
       <div className="px-4 pr-12 md:pr-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-4 sticky top-0 z-10">
-        {/* Left side: Title - Allow to grow */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          {" "}
-          {/* Added flex-1 and min-w-0 */}
+        {/* Left side: Title */}
+        <div className="flex items-center gap-3">
           <div className="flex items-center justify-center h-8 w-8 flex-shrink-0">
-            {" "}
-            {/* Added flex-shrink-0 */}
             <FolderOpen size={24} className="text-[#F48120]" />
           </div>
-          <div className="flex-1 truncate">
-            {" "}
-            {/* Added truncate */}
+          <div className="truncate">
             <h2 className="font-semibold text-base truncate">
               {workerId}
-            </h2>{" "}
-            {/* Added truncate */}
+            </h2>
           </div>
         </div>
 
-        {/* Right side: Buttons - Don't grow/shrink */}
+        {/* Center: View toggle buttons */}
+        <div className="flex-1 flex justify-center items-center gap-2">
+          <Button
+            variant={viewMode === "list" ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className="flex items-center gap-2"
+          >
+            <ListBullets size={16} />
+            <span>List View</span>
+          </Button>
+          <Button
+            variant={viewMode === "graph" ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setViewMode("graph")}
+            className="flex items-center gap-2"
+          >
+            <Graph size={16} />
+            <span>Dependency Graph</span>
+          </Button>
+        </div>
+
+        {/* Right side: Buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {" "}
-          {/* Added flex-shrink-0 */}
           {onToggle && (
             <Button
               variant="ghost"
@@ -296,13 +311,12 @@ export function StoragePanel({
               <ArrowsHorizontal size={20} />
             </Button>
           )}
-          {/* Removed streaming status indicator */}
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
-              shape="square" // Make square for icon-only
-              className="h-9 w-9" // Adjust size
+              shape="square"
+              className="h-9 w-9"
               disabled={isFetchingStatus}
               onClick={fetchBuildStatus}
               title="Fetch build status"
@@ -311,19 +325,17 @@ export function StoragePanel({
                 size={18}
                 className={isFetchingStatus ? "animate-spin" : ""}
               />
-              {/* Removed text span */}
             </Button>
             <Button
               variant="secondary"
               size="sm"
-              shape="square" // Make square for icon-only
-              className="h-9 w-9" // Adjust size
+              shape="square"
+              className="h-9 w-9"
               disabled={isPublishing || fileCount === 0}
               onClick={handleGitHubPublish}
-              title="Publish to GitHub" // Add title for tooltip
+              title="Publish to GitHub"
             >
               <GithubLogo size={18} />
-              {/* Removed text span */}
             </Button>
           </div>
         </div>
@@ -355,6 +367,7 @@ export function StoragePanel({
         ) : agentState?.files && Object.keys(agentState.files).length > 0 ? (
           <FileViewer
             files={agentState.files}
+            viewMode={viewMode}
           />
         ) : (
           <div className="text-center text-neutral-500 p-4 text-base">

@@ -187,20 +187,12 @@ function DependencyGraph({ files, onFileSelect }: DependencyGraphViewerProps) {
           
           <ResizablePanel defaultSize={40} minSize={30}>
             <div className="h-full overflow-auto bg-white dark:bg-gray-900 border-l border-gray-300 dark:border-gray-700">
-              <div className="sticky top-0 flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 border-b border-gray-300 dark:border-gray-700">
-                <h3 className="text-sm font-medium truncate">{selectedFile}</h3>
-                <button 
-                  onClick={closeFileViewer}
-                  className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="h-[calc(100%-40px)]">
+              <div className="h-full overflow-auto">
                 <FileContentsViewer 
                   files={selectedFiles} 
                   expandedFiles={expandedFiles} 
-                  toggleFileExpansion={toggleFileExpansion} 
+                  toggleFileExpansion={toggleFileExpansion}
+                  onClose={closeFileViewer}
                 />
               </div>
             </div>
