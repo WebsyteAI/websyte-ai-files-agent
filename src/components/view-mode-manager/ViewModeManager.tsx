@@ -13,14 +13,14 @@ interface FileData {
   streaming?: boolean;
 }
 
-interface FileViewerProps {
+interface ViewModeManagerProps {
   files: Record<string, FileData>;
   viewMode?: "list" | "graph" | "board";
   agentState?: any;
   onUpdateAgentState?: (newState: any) => void;
 }
 
-export function FileViewer({ files, viewMode = "list", agentState, onUpdateAgentState }: FileViewerProps) {
+export function ViewModeManager({ files, viewMode = "list", agentState, onUpdateAgentState }: ViewModeManagerProps) {
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   

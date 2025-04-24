@@ -36,7 +36,7 @@ interface BuildStatus {
     started_at: string;
     completed_at: string | null;
     html_url: string;
-    app?: { // Make app optional as seen in StoragePanel
+    app?: { // Make app optional as seen in WorkspacePanel
       name: string;
     };
   }>;

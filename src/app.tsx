@@ -20,7 +20,7 @@ export default function Chat() {
   const [showDebug, setShowDebug] = useState(false);
   // Separate states for panel visibility
   const [isTimelineOpen, setIsTimelineOpen] = useState(false); // Combined mobile/desktop state initially false
-  const [isStoragePanelOpen, setIsStoragePanelOpen] = useState(false); // Combined mobile/desktop state initially false
+  const [isWorkspacePanelOpen, setIsWorkspacePanelOpen] = useState(false); // Combined mobile/desktop state initially false
   const [isPromptFlowOpen, setIsPromptFlowOpen] = useState(false); // State for prompt flow panel
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
   const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
@@ -243,7 +243,7 @@ export default function Chat() {
           showDebug={showDebug}
           setShowDebug={setShowDebug}
           setIsTimelineOpen={setIsTimelineOpen}
-          setIsStoragePanelOpen={setIsStoragePanelOpen}
+          setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
           setIsPromptFlowOpen={setIsPromptFlowOpen}
           clearHistory={clearHistory}
           messages={agentMessages}
@@ -266,8 +266,8 @@ export default function Chat() {
       }
       isTimelineOpen={isTimelineOpen}
       setIsTimelineOpen={setIsTimelineOpen}
-      isStoragePanelOpen={isStoragePanelOpen}
-      setIsStoragePanelOpen={setIsStoragePanelOpen}
+      isWorkspacePanelOpen={isWorkspacePanelOpen}
+      setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
       isPromptFlowOpen={isPromptFlowOpen}
       setIsPromptFlowOpen={setIsPromptFlowOpen}
       isMobile={isMobile}

@@ -12,7 +12,7 @@ interface ChatHeaderProps {
   showDebug: boolean;
   setShowDebug: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTimelineOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsStoragePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsWorkspacePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsPromptFlowOpen: React.Dispatch<React.SetStateAction<boolean>>;
   clearHistory: () => void;
 }
@@ -21,7 +21,7 @@ export function ChatHeader({
   showDebug,
   setShowDebug,
   setIsTimelineOpen,
-  setIsStoragePanelOpen,
+  setIsWorkspacePanelOpen,
   setIsPromptFlowOpen,
   clearHistory
 }: ChatHeaderProps) {
@@ -68,7 +68,7 @@ export function ChatHeader({
         size="md"
         shape="square"
         className="rounded-full h-9 w-9 md:hidden"
-        onClick={() => setIsStoragePanelOpen(true)}
+        onClick={() => setIsWorkspacePanelOpen(true)}
         title="Close Chat"
       >
         <X size={20} />

@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { ChatCircle, X, FlowArrow } from "@phosphor-icons/react";
 import { Button } from "@/components/button/Button";
-import { StoragePanel } from "@/components/storage-panel/StoragePanel";
+import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
-import { PromptFlowPanel } from "@/components/prompt-flow/PromptFlowPanel";
 import { ScrollArea } from "@/components/scroll-area";
 import {
   Drawer,
@@ -19,8 +18,8 @@ interface AppLayoutProps {
   chatPanel: React.ReactNode;
   isTimelineOpen: boolean;
   setIsTimelineOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isStoragePanelOpen: boolean;
-  setIsStoragePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isWorkspacePanelOpen: boolean;
+  setIsWorkspacePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isPromptFlowOpen: boolean;
   setIsPromptFlowOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMobile: boolean;
@@ -36,8 +35,8 @@ export function AppLayout({
   chatPanel,
   isTimelineOpen,
   setIsTimelineOpen,
-  isStoragePanelOpen,
-  setIsStoragePanelOpen,
+  isWorkspacePanelOpen,
+  setIsWorkspacePanelOpen,
   isPromptFlowOpen,
   setIsPromptFlowOpen,
   isMobile,
@@ -79,9 +78,9 @@ export function AppLayout({
           </div>
         </div>
 
-        {/* Storage Panel - Resizable */}
+        {/* Workspace Panel - Resizable */}
         <div className="h-full flex-1 flex flex-col relative">
-          <StoragePanel
+          <WorkspacePanel
             agentState={agentState}
             loading={agentStateLoading}
             onUpdateAgentState={handleUpdateAgentState}
@@ -96,27 +95,27 @@ export function AppLayout({
           </button>
         </div>
         
-        {/* Storage Panel - Mobile Only */}
-        {isStoragePanelOpen && isMobile && (
+        {/* Workspace Panel - Mobile Only */}
+        {isWorkspacePanelOpen && isMobile && (
           <div className="fixed inset-0 z-50 bg-background">
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b">
-                <h2 className="font-semibold text-base">Storage Panel</h2>
+                <h2 className="font-semibold text-base">Workspace Panel</h2>
                 <Button
                   variant="ghost"
                   size="sm"
                   shape="square"
                   className="rounded-full h-9 w-9"
-                  onClick={() => setIsStoragePanelOpen(false)}
+                  onClick={() => setIsWorkspacePanelOpen(false)}
                 >
                   <X size={20} />
                 </Button>
               </div>
               <div className="flex-1 overflow-auto">
-                <StoragePanel
+                <WorkspacePanel
                   agentState={agentState}
                   loading={agentStateLoading}
-                  onToggle={() => setIsStoragePanelOpen(false)}
+                  onToggle={() => setIsWorkspacePanelOpen(false)}
                   onUpdateAgentState={handleUpdateAgentState}
                 />
               </div>

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
-import { Input } from "@/components/input/Input";
-import { Label } from "@/components/label/Label";
 import {
   FolderOpen,
   ArrowClockwise,
@@ -14,7 +12,7 @@ import {
   X,
   FlowArrow,
 } from "@phosphor-icons/react";
-import { FileViewer } from "@/components/file-viewer/FileViewer";
+import { ViewModeManager } from "@/components/view-mode-manager/ViewModeManager";
 
 // Define the file structure
 interface FileData {
@@ -62,19 +60,19 @@ interface AgentState {
   workerScriptName?: string;
 }
 
-interface StoragePanelProps {
+interface WorkspacePanelProps {
   agentState: AgentState | null;
   loading: boolean;
   onToggle?: () => void;
   onUpdateAgentState?: (newState: any) => void;
 }
 
-export function StoragePanel({
+export function WorkspacePanel({
   agentState,
   loading,
   onToggle,
   onUpdateAgentState,
-}: StoragePanelProps) {
+}: WorkspacePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
@@ -389,7 +387,7 @@ export function StoragePanel({
             <div className="animate-spin h-6 w-6 border-2 border-[#F48120] border-t-transparent rounded-full"></div>
           </div>
         ) : agentState?.files && Object.keys(agentState.files).length > 0 ? (
-          <FileViewer
+          <ViewModeManager
             files={agentState.files}
             viewMode={viewMode}
             agentState={agentState}
