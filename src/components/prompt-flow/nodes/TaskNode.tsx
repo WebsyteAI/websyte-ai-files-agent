@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import type { AgentTask } from '../utils/prompt-flow-utils';
 import { CATEGORY_COLORS } from '../utils/prompt-flow-utils';
+import { X } from '@phosphor-icons/react';
 
 interface TaskNodeProps {
   data: {
     task: AgentTask;
     onStatusChange: (newStatus: 'todo' | 'inProgress' | 'done') => void;
+    onDelete?: (taskId: string) => void;
   };
   isConnectable: boolean;
 }
 
 export function TaskNode({ data, isConnectable }: TaskNodeProps) {
-  const { task, onStatusChange } = data;
+  const { task, onStatusChange, onDelete } = data;
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Get color based on category
@@ -27,8 +29,12 @@ export function TaskNode({ data, isConnectable }: TaskNodeProps) {
   
   return (
     <div 
-      className={`px-4 py-3 rounded-lg shadow-md bg-white dark:bg-gray-800 border-l-4 min-w-[250px] max-w-[350px] transition-all duration-200 ${isExpanded ? 'h-auto' : 'h-auto'}`}
-      style={{ borderLeftColor: categoryColor }}
+      className={`px-2 py-2 rounded-lg shadow-md bg-white dark:bg-gray-800 border-l-4 min-w-[180px] max-w-[220px] transition-all duration-200`}
+      style={{ 
+        borderLeftColor: categoryColor,
+        borderTopColor: task.status === 'done' ? '#10b981' : task.status === 'inProgress' ? '#3b82f6' : '#d1d5db',
+        borderTopWidth: '2px'
+      }}
     >
       {/* Top handle for incoming connections */}
       <Handle
@@ -38,22 +44,28 @@ export function TaskNode({ data, isConnectable }: TaskNodeProps) {
         className="w-2 h-2 bg-gray-400"
       />
       
-      <div className="flex justify-between items-start mb-2">
-        <div className="font-medium text-base dark:text-white">{task.title}</div>
-        <div 
-          className={`text-xs px-2 py-0.5 rounded-full ${statusStyles[task.status]}`}
-        >
-          {task.status === 'todo' ? 'To Do' : task.status === 'inProgress' ? 'In Progress' : 'Done'}
-        </div>
-      </div>
-      
-      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-        {task.category.charAt(0).toUpperCase() + task.category.slice(1)}
+      <div className="flex justify-between items-start">
+        <div className="font-medium text-sm dark:text-white">{task.title}</div>
+        
+        {/* Delete button */}
+        {onDelete && (
+          <button
+            className="text-red-500 hover:text-red-700 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(task.id);
+            }}
+            title="Delete task"
+          >
+            <X size={12} weight="bold" />
+          </button>
+        )}
       </div>
       
       {/* Toggle description visibility */}
       <button 
-        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mb-2"
+        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-1"
+        style={{ fontSize: '0.65rem' }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {isExpanded ? 'Hide details' : 'Show details'}
@@ -61,49 +73,10 @@ export function TaskNode({ data, isConnectable }: TaskNodeProps) {
       
       {/* Description (conditionally rendered) */}
       {isExpanded && (
-        <div className="text-sm text-gray-600 dark:text-gray-300 mb-3 mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+        <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 p-1 bg-gray-100 dark:bg-gray-700 rounded">
           {task.description}
         </div>
       )}
-      
-      {/* Status change buttons */}
-      <div className="flex justify-between mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-        <button
-          className={`text-xs px-2 py-1 rounded ${
-            task.status === 'todo' 
-              ? 'bg-gray-300 text-gray-700 cursor-not-allowed' 
-              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-          }`}
-          onClick={() => task.status !== 'todo' && onStatusChange('todo')}
-          disabled={task.status === 'todo'}
-        >
-          To Do
-        </button>
-        
-        <button
-          className={`text-xs px-2 py-1 rounded ${
-            task.status === 'inProgress' 
-              ? 'bg-blue-300 text-blue-700 cursor-not-allowed' 
-              : 'bg-blue-200 hover:bg-blue-300 text-blue-700'
-          }`}
-          onClick={() => task.status !== 'inProgress' && onStatusChange('inProgress')}
-          disabled={task.status === 'inProgress'}
-        >
-          In Progress
-        </button>
-        
-        <button
-          className={`text-xs px-2 py-1 rounded ${
-            task.status === 'done' 
-              ? 'bg-green-300 text-green-700 cursor-not-allowed' 
-              : 'bg-green-200 hover:bg-green-300 text-green-700'
-          }`}
-          onClick={() => task.status !== 'done' && onStatusChange('done')}
-          disabled={task.status === 'done'}
-        >
-          Done
-        </button>
-      </div>
       
       {/* Bottom handle for outgoing connections */}
       <Handle

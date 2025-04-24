@@ -10,9 +10,9 @@ interface IdeaNodeProps {
 
 export function IdeaNode({ data, isConnectable }: IdeaNodeProps) {
   return (
-    <div className="px-4 py-3 rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-purple-500 text-white min-w-[200px] max-w-[300px]">
-      <div className="font-bold text-lg mb-2">Main Idea</div>
-      <div className="text-sm">{data.label}</div>
+    <div className="px-3 py-2 rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-purple-500 text-white min-w-[180px] max-w-[250px]">
+      <div className="font-bold text-sm mb-1">Main Idea</div>
+      <div className="text-xs">{data.label}</div>
       
       {/* Bottom handle for outgoing connections */}
       <Handle

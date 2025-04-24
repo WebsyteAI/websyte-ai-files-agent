@@ -1,15 +1,13 @@
-import { useState, useEffect } from "react";
-import { ChatCircle, X, FlowArrow } from "@phosphor-icons/react";
+import { useState } from "react";
+import { ChatCircle, X } from "@phosphor-icons/react";
 import { Button } from "@/components/button/Button";
 import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
 import { ScrollArea } from "@/components/scroll-area";
-import { PromptFlowPanel } from "@/components/prompt-flow/PromptFlowPanel";
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,

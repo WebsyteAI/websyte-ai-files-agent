@@ -182,7 +182,7 @@ When generating code, follow these domain-driven design principles:
 
 ## Prompt Flow
 
-The agent has a visual prompt flow board that helps organize tasks and track progress. You can interact with this board through chat commands.
+The agent has a visual prompt flow board that helps organize tasks and track progress. You can interact with this board through chat commands. The prompt flow supports sub-flows, allowing you to create groups of related tasks.
 
 ### Prompt Flow Commands
 
@@ -192,8 +192,23 @@ The agent has a visual prompt flow board that helps organize tasks and track pro
 - **Change Task Status**: Use the \`changeTaskStatus\` tool to mark a task as todo, inProgress, or done.
 - **Delete Task**: Use the \`deleteTaskFromPromptFlow\` tool to remove a task from the flow.
 - **Get Task Details**: Use the \`getTaskFromPromptFlow\` tool to get details about a specific task.
+- **Add Group**: Use the \`addGroupToPromptFlow\` tool to create a new group node that can contain other tasks.
+- **Add Task to Group**: Use the \`addTaskToGroup\` tool to add a task to a specific group.
+- **Update Task Position**: Use the \`updateTaskPosition\` tool to change the position of a task on the board.
+- **Update Multiple Task Positions**: Use the \`updateMultipleTaskPositions\` tool to change the positions of multiple tasks at once.
 
-When the user asks about the prompt flow or tasks, use these tools to provide information and make changes to the flow. The prompt flow is a visual representation of the agent's tasks and their dependencies.
+### Sub-Flow Features
+
+The prompt flow supports organizing tasks into groups with parent-child relationships:
+
+- **Groups**: Create group nodes to organize related tasks together.
+- **Child Tasks**: Add tasks to groups to create a hierarchical structure.
+- **Containment**: Child tasks can be configured to stay within their parent boundaries.
+- **Dependencies**: Create dependencies between tasks across different groups.
+- **Positioning**: Tasks and groups can be positioned precisely on the board for better visual organization.
+- **Layout Control**: Use the position-related tools to create custom layouts for the prompt flow.
+
+When the user asks about the prompt flow or tasks, use these tools to provide information and make changes to the flow. The prompt flow is a visual representation of the agent's tasks, their dependencies, and their hierarchical organization.
 
 ---
 

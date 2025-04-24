@@ -34,7 +34,11 @@ export const updatePromptFlow = tool({
         description: z.string(),
         category: z.enum(['core', 'tools', 'state', 'api', 'testing']),
         status: z.enum(['todo', 'inProgress', 'done']),
-        dependencies: z.array(z.string())
+        dependencies: z.array(z.string()),
+        parentId: z.string().optional(),
+        type: z.enum(['task', 'group']).optional(),
+        style: z.record(z.any()).optional(),
+        extent: z.enum(['parent']).optional()
       }))
     })
   }),
@@ -253,6 +257,215 @@ export const getTaskFromPromptFlow = tool({
   },
 });
 
+/**
+ * Add a new group to the prompt flow
+ */
+export const addGroupToPromptFlow = tool({
+  description: "Add a new group node to the prompt flow",
+  parameters: z.object({
+    title: z.string(),
+    description: z.string(),
+    category: z.enum(['core', 'tools', 'state', 'api', 'testing']),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    backgroundColor: z.string().optional(),
+    dependencies: z.array(z.string()).optional(),
+  }),
+  execute: async ({ title, description, category, width = 300, height = 200, backgroundColor = 'rgba(240, 240, 255, 0.8)', dependencies = [] }) => {
+    const agent = agentContext.getStore() as ChatAgent;
+    const currentFlow = agent.state.promptFlow || { 
+      mainIdea: agent.state.agentName || "My AI Agent", 
+      tasks: [] 
+    };
+    
+    const newGroup: AgentTask = {
+      id: generateTaskId(),
+      title,
+      description,
+      category,
+      status: 'todo',
+      dependencies,
+      type: 'group',
+      style: {
+        width: width || 400,
+        height: height || 700,
+        backgroundColor: backgroundColor || 'rgba(240, 240, 255, 0.8)',
+        border: '2px solid #ddd',
+        borderRadius: '8px',
+        padding: '20px'
+      }
+    };
+    
+    const updatedFlow = {
+      ...currentFlow,
+      tasks: [...currentFlow.tasks, newGroup]
+    };
+    
+    await agent.setState({
+      ...agent.state,
+      promptFlow: updatedFlow
+    });
+    
+    return { 
+      success: true, 
+      message: "Group added successfully", 
+      groupId: newGroup.id 
+    };
+  },
+});
+
+/**
+ * Add a task to a specific group
+ */
+export const addTaskToGroup = tool({
+  description: "Add a new task to a specific group in the prompt flow",
+  parameters: z.object({
+    groupId: z.string(),
+    title: z.string(),
+    description: z.string(),
+    category: z.enum(['core', 'tools', 'state', 'api', 'testing']),
+    dependencies: z.array(z.string()).optional(),
+    stayWithinParent: z.boolean().optional(),
+  }),
+  execute: async ({ groupId, title, description, category, dependencies = [], stayWithinParent = true }) => {
+    const agent = agentContext.getStore() as ChatAgent;
+    const currentFlow = agent.state.promptFlow || { 
+      mainIdea: agent.state.agentName || "My AI Agent", 
+      tasks: [] 
+    };
+    
+    // Check if the group exists
+    const groupExists = currentFlow.tasks.some(task => task.id === groupId && task.type === 'group');
+    
+    if (!groupExists) {
+      return { success: false, message: `Group with ID ${groupId} not found` };
+    }
+    
+    const newTask: AgentTask = {
+      id: generateTaskId(),
+      title,
+      description,
+      category,
+      status: 'todo',
+      dependencies,
+      parentId: groupId,
+      ...(stayWithinParent && { extent: 'parent' })
+    };
+    
+    const updatedFlow = {
+      ...currentFlow,
+      tasks: [...currentFlow.tasks, newTask]
+    };
+    
+    await agent.setState({
+      ...agent.state,
+      promptFlow: updatedFlow
+    });
+    
+    return { 
+      success: true, 
+      message: "Task added to group successfully", 
+      taskId: newTask.id 
+    };
+  },
+});
+
+/**
+ * Update the position of a task in the prompt flow
+ */
+export const updateTaskPosition = tool({
+  description: "Update the position of a task in the prompt flow",
+  parameters: z.object({
+    taskId: z.string(),
+    x: z.number(),
+    y: z.number(),
+  }),
+  execute: async ({ taskId, x, y }) => {
+    const agent = agentContext.getStore() as ChatAgent;
+    const currentFlow = agent.state.promptFlow;
+    
+    if (!currentFlow) {
+      return { success: false, message: "No prompt flow exists" };
+    }
+    
+    const taskIndex = currentFlow.tasks.findIndex(task => task.id === taskId);
+    
+    if (taskIndex === -1) {
+      return { success: false, message: `Task with ID ${taskId} not found` };
+    }
+    
+    const updatedTasks = [...currentFlow.tasks];
+    updatedTasks[taskIndex] = {
+      ...updatedTasks[taskIndex],
+      position: { x, y }
+    };
+    
+    const updatedFlow = {
+      ...currentFlow,
+      tasks: updatedTasks
+    };
+    
+    await agent.setState({
+      ...agent.state,
+      promptFlow: updatedFlow
+    });
+    
+    return { success: true, message: `Task position updated to x: ${x}, y: ${y}` };
+  },
+});
+
+/**
+ * Update the positions of multiple tasks in the prompt flow
+ */
+export const updateMultipleTaskPositions = tool({
+  description: "Update the positions of multiple tasks in the prompt flow",
+  parameters: z.object({
+    positions: z.array(z.object({
+      taskId: z.string(),
+      x: z.number(),
+      y: z.number(),
+    })),
+  }),
+  execute: async ({ positions }) => {
+    const agent = agentContext.getStore() as ChatAgent;
+    const currentFlow = agent.state.promptFlow;
+    
+    if (!currentFlow) {
+      return { success: false, message: "No prompt flow exists" };
+    }
+    
+    const updatedTasks = [...currentFlow.tasks];
+    
+    // Update each task position
+    for (const position of positions) {
+      const taskIndex = updatedTasks.findIndex(task => task.id === position.taskId);
+      
+      if (taskIndex !== -1) {
+        updatedTasks[taskIndex] = {
+          ...updatedTasks[taskIndex],
+          position: { x: position.x, y: position.y }
+        };
+      }
+    }
+    
+    const updatedFlow = {
+      ...currentFlow,
+      tasks: updatedTasks
+    };
+    
+    await agent.setState({
+      ...agent.state,
+      promptFlow: updatedFlow
+    });
+    
+    return { 
+      success: true, 
+      message: `Updated positions for ${positions.length} tasks`,
+      updatedTaskIds: positions.map(p => p.taskId)
+    };
+  },
+});
+
 // Export all prompt flow tools
 export const promptFlowTools = {
   getPromptFlow,
@@ -262,4 +475,8 @@ export const promptFlowTools = {
   changeTaskStatus,
   deleteTaskFromPromptFlow,
   getTaskFromPromptFlow,
+  addGroupToPromptFlow,
+  addTaskToGroup,
+  updateTaskPosition,
+  updateMultipleTaskPositions,
 };

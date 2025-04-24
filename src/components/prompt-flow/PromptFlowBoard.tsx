@@ -9,11 +9,12 @@ import ReactFlow, {
   addEdge,
   Panel,
 } from 'reactflow';
-import type { Connection, Edge, NodeTypes } from 'reactflow';
+import type { Connection, Edge, NodeTypes, Node } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 import { IdeaNode } from './nodes/IdeaNode';
 import { TaskNode } from './nodes/TaskNode';
+import { GroupNode } from './nodes/GroupNode';
 import type { AgentTask, PromptFlow } from './utils/prompt-flow-utils';
 import { 
   generateNodes, 
@@ -28,6 +29,7 @@ import { Button } from '@/components/button/Button';
 const nodeTypes: NodeTypes = {
   ideaNode: IdeaNode,
   taskNode: TaskNode,
+  groupNode: GroupNode,
 };
 
 interface PromptFlowBoardProps {
@@ -63,6 +65,63 @@ export function PromptFlowBoard({
     });
   }, [promptFlow, onPromptFlowChange]);
   
+  // Handle node position update after dragging
+  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    // Skip the main idea node
+    if (node.id === 'main-idea') {
+      return;
+    }
+    
+    // Find the task in the promptFlow
+    const taskIndex = promptFlow.tasks.findIndex(task => task.id === node.id);
+    
+    if (taskIndex === -1) {
+      return;
+    }
+    
+    // Update the task position
+    const updatedTasks = [...promptFlow.tasks];
+    updatedTasks[taskIndex] = {
+      ...updatedTasks[taskIndex],
+      position: node.position
+    };
+    
+    // Update the prompt flow
+    onPromptFlowChange({
+      ...promptFlow,
+      tasks: updatedTasks,
+    });
+  }, [promptFlow, onPromptFlowChange]);
+  
+  // Handle task deletion
+  const handleDeleteTask = useCallback((taskId: string) => {
+    // Find the task to delete
+    const taskToDelete = promptFlow.tasks.find(task => task.id === taskId);
+    
+    if (!taskToDelete) {
+      return;
+    }
+    
+    // Remove the task from the tasks array
+    const updatedTasks = promptFlow.tasks.filter(task => task.id !== taskId);
+    
+    // If this is a group, also remove all its children
+    if (taskToDelete.type === 'group') {
+      const childTasks = promptFlow.tasks.filter(task => task.parentId === taskId);
+      if (childTasks.length > 0) {
+        // Remove all child tasks
+        const tasksWithoutChildren = updatedTasks.filter(task => task.parentId !== taskId);
+        updatedTasks.splice(0, updatedTasks.length, ...tasksWithoutChildren);
+      }
+    }
+    
+    // Update the prompt flow
+    onPromptFlowChange({
+      ...promptFlow,
+      tasks: updatedTasks,
+    });
+  }, [promptFlow, onPromptFlowChange]);
+  
   // Update nodes and edges when promptFlow changes or filter changes
   useEffect(() => {
     // Filter tasks based on status filter
@@ -73,49 +132,75 @@ export function PromptFlowBoard({
     // Generate nodes with the status change handler
     const newNodes = generateNodes(filteredTasks, promptFlow.mainIdea);
     
-    // Add the status change handler to each task node
+    // Add the status change and delete handlers to each task node
     newNodes.forEach(node => {
       if (node.type === 'taskNode') {
         node.data.onStatusChange = handleTaskStatusChange;
+        node.data.onDelete = handleDeleteTask;
       }
     });
     
     setNodes(newNodes);
     setEdges(generateEdges(filteredTasks));
-  }, [promptFlow, statusFilter, setNodes, setEdges, handleTaskStatusChange]);
+  }, [promptFlow, statusFilter, setNodes, setEdges, handleTaskStatusChange, handleDeleteTask]);
   
   // Handle edge connections
   const onConnect = useCallback(
     (connection: Connection) => {
-      // Only allow connections from task nodes to task nodes
-      if (connection.source !== 'main-idea' && connection.target !== 'main-idea') {
-        // Find the target task
-        const targetTask = promptFlow.tasks.find(task => task.id === connection.target);
-        const sourceTask = promptFlow.tasks.find(task => task.id === connection.source);
-        
-        if (targetTask && sourceTask) {
-          // Add the source as a dependency to the target
-          const updatedTasks = promptFlow.tasks.map(task => {
-            if (task.id === targetTask.id) {
-              return {
-                ...task,
-                dependencies: [...task.dependencies, sourceTask.id]
-              };
-            }
-            return task;
-          });
-          
-          onPromptFlowChange({
-            ...promptFlow,
-            tasks: updatedTasks,
-          });
-          
-          // Add the edge
+      // Find the source and target tasks
+      const targetTask = promptFlow.tasks.find(task => task.id === connection.target);
+      const sourceTask = promptFlow.tasks.find(task => task.id === connection.source);
+      
+      // Don't allow connections if either task doesn't exist
+      if (!targetTask || !sourceTask) {
+        return;
+      }
+      
+      // Case 1: Connection from main idea to any node
+      if (connection.source === 'main-idea') {
+        // Allow connections from main idea to root-level tasks only
+        if (!targetTask.parentId) {
           setEdges(addEdge(connection, edges));
         }
-      } else if (connection.source === 'main-idea') {
-        // Allow connections from main idea to tasks
+        return;
+      }
+      
+      // Case 2: Connection from a group node to its children
+      if (sourceTask.type === 'group' && targetTask.parentId === sourceTask.id) {
+        // This is a valid parent-child connection
         setEdges(addEdge(connection, edges));
+        return;
+      }
+      
+      // Case 3: Connection between nodes at the same level (both root or both in same group)
+      const sourceIsRoot = !sourceTask.parentId;
+      const targetIsRoot = !targetTask.parentId;
+      
+      // Only allow connections between nodes at the same level
+      if (sourceIsRoot && targetIsRoot) {
+        // Both are root level, allow the connection
+        // Add the source as a dependency to the target
+        const updatedTasks = promptFlow.tasks.map(task => {
+          if (task.id === targetTask.id) {
+            return {
+              ...task,
+              dependencies: [...task.dependencies, sourceTask.id]
+            };
+          }
+          return task;
+        });
+        
+        onPromptFlowChange({
+          ...promptFlow,
+          tasks: updatedTasks,
+        });
+        
+        // Add the edge
+        setEdges(addEdge(connection, edges));
+      } else if (sourceTask.parentId && targetTask.parentId && sourceTask.parentId === targetTask.parentId) {
+        // Both are in the same group, but we don't allow connections between siblings
+        // as per the user's request to only connect child nodes to their parent
+        return;
       }
     },
     [promptFlow, onPromptFlowChange, edges, setEdges]
@@ -139,9 +224,15 @@ export function PromptFlowBoard({
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes}
             fitView
+            fitViewOptions={{ padding: 0.3 }}
+            minZoom={0.4}
+            maxZoom={1.2}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
             attributionPosition="bottom-left"
+            proOptions={{ hideAttribution: true }}
           >
             <Controls />
             <MiniMap />
@@ -185,29 +276,7 @@ export function PromptFlowBoard({
                 </Button>
               </div>
               
-              {/* Add Task Button */}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  // Create a new task
-                  const newTask: AgentTask = {
-                    id: generateTaskId(),
-                    title: 'New Task',
-                    description: 'Add description here',
-                    category: 'core',
-                    status: 'todo',
-                    dependencies: [],
-                  };
-                  
-                  onPromptFlowChange({
-                    ...promptFlow,
-                    tasks: [...promptFlow.tasks, newTask],
-                  });
-                }}
-              >
-                Add Task
-              </Button>
+              {/* Task buttons removed */}
             </Panel>
           </ReactFlow>
         </div>
