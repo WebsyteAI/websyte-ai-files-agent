@@ -62,6 +62,9 @@ export interface GitHubCommit {
   } | null;
 }
 
+// Import the PromptFlow type from the prompt flow utils
+import type { PromptFlow } from "../src/components/prompt-flow/utils/prompt-flow-utils";
+
 /**
  * Agent state structure
  * Defines the shape of the agent's persistent state
@@ -94,6 +97,8 @@ export interface AgentState {
     repo?: string;
     branch: string;
   };
+  // Prompt flow configuration
+  promptFlow?: PromptFlow;
   // Cloudflare Worker configuration
   dispatchNamespace?: string;
   dispatchNamespaceAccountId?: string;

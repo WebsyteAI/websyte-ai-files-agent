@@ -38,6 +38,10 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
       owner: "WebsyteAI",
       branch: "main",
     },
+    promptFlow: {
+      mainIdea: "",
+      tasks: []
+    },
     dispatchNamespace: process.env.DISPATCH_NAMESPACE_NAME || "",
     dispatchNamespaceAccountId: process.env.DISPATCH_NAMESPACE_ACCOUNT_ID || "",
   };
@@ -65,9 +69,14 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
       );
     }
     if (!this.state.agentName) {
+      // Update both agentName and promptFlow.mainIdea
       await this.setState({
         ...this.state,
         agentName,
+        promptFlow: {
+          mainIdea: agentName,
+          tasks: this.state.promptFlow?.tasks || []
+        }
       });
     }
     return await super.onRequest(request);
@@ -87,9 +96,14 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
       return;
     }
     if (!this.state.agentName) {
+      // Update both agentName and promptFlow.mainIdea
       await this.setState({
         ...this.state,
         agentName,
+        promptFlow: {
+          mainIdea: agentName,
+          tasks: this.state.promptFlow?.tasks || []
+        }
       });
     }
     await super.onConnect(connection, ctx);

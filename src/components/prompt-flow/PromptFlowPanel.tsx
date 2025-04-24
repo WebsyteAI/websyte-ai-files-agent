@@ -41,14 +41,37 @@ export function PromptFlowPanel({
   }, [agentState]);
   
   // Handle prompt flow changes
-  const handlePromptFlowChange = (updatedFlow: PromptFlow) => {
+  const handlePromptFlowChange = async (updatedFlow: PromptFlow) => {
+    // Update local UI state immediately for responsiveness
     setPromptFlow(updatedFlow);
     
-    // Update agent state
-    onUpdateAgentState({
-      ...agentState,
-      promptFlow: updatedFlow,
-    });
+    try {
+      // Update the agent state using the updatePromptFlow tool
+      const response = await fetch('/api/agent/tool', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tool: 'updatePromptFlow',
+          params: {
+            promptFlow: updatedFlow
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to update prompt flow in agent state');
+      }
+      
+      // Also update the local agent state for immediate UI feedback
+      onUpdateAgentState({
+        ...agentState,
+        promptFlow: updatedFlow,
+      });
+    } catch (error) {
+      console.error('Error updating prompt flow:', error);
+    }
   };
   
   // Handle new idea input
@@ -74,7 +97,7 @@ export function PromptFlowPanel({
     if (!promptFlow.mainIdea) return;
     
     try {
-      // Call the AI to split the prompt
+      // Call the AI to split the prompt using the agent's tool
       const response = await fetch('/api/agent/tool', {
         method: 'POST',
         headers: {
@@ -105,10 +128,37 @@ export function PromptFlowPanel({
           dependencies: [],
         }));
         
-        // Update the prompt flow
-        handlePromptFlowChange({
+        // Create a new prompt flow with the tasks
+        const updatedFlow: PromptFlow = {
           ...promptFlow,
           tasks,
+        };
+        
+        // Update the prompt flow in the UI
+        setPromptFlow(updatedFlow);
+        
+        // Update the agent state using the updatePromptFlow tool
+        const updateResponse = await fetch('/api/agent/tool', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tool: 'updatePromptFlow',
+            params: {
+              promptFlow: updatedFlow
+            }
+          }),
+        });
+        
+        if (!updateResponse.ok) {
+          console.error('Failed to update prompt flow in agent state');
+        }
+        
+        // Also update the local agent state for immediate UI feedback
+        onUpdateAgentState({
+          ...agentState,
+          promptFlow: updatedFlow,
         });
       } else {
         console.error('Invalid response format from splitAgentPrompt tool');
@@ -140,10 +190,37 @@ export function PromptFlowPanel({
           }
         ];
         
-        // Update the prompt flow with default tasks
-        handlePromptFlowChange({
+        // Create a new prompt flow with the default tasks
+        const updatedFlow: PromptFlow = {
           ...promptFlow,
           tasks: defaultTasks,
+        };
+        
+        // Update the prompt flow in the UI
+        setPromptFlow(updatedFlow);
+        
+        // Update the agent state using the updatePromptFlow tool
+        const updateResponse = await fetch('/api/agent/tool', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tool: 'updatePromptFlow',
+            params: {
+              promptFlow: updatedFlow
+            }
+          }),
+        });
+        
+        if (!updateResponse.ok) {
+          console.error('Failed to update prompt flow in agent state');
+        }
+        
+        // Also update the local agent state for immediate UI feedback
+        onUpdateAgentState({
+          ...agentState,
+          promptFlow: updatedFlow,
         });
       }
     } catch (error) {

@@ -65,6 +65,7 @@ interface WorkspacePanelProps {
   loading: boolean;
   onToggle?: () => void;
   onUpdateAgentState?: (newState: any) => void;
+  // Removed isPromptFlowOpen prop since we're setting viewMode to "board" by default
 }
 
 export function WorkspacePanel({
@@ -79,7 +80,7 @@ export function WorkspacePanel({
   const [isFetchingStatus, setIsFetchingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const initialFetchDone = useRef(false);
-  const [viewMode, setViewMode] = useState<"list" | "graph" | "board">("list");
+  const [viewMode, setViewMode] = useState<"list" | "graph" | "board">("board");
 
   // Initialize all files as expanded by default
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(
@@ -108,6 +109,8 @@ export function WorkspacePanel({
       });
     }
   }, [agentState?.files]);
+  
+  // No need for the effect that sets viewMode to "board" since it's the default now
 
   // Fetch build status from GitHub
   const fetchBuildStatus = async () => {

@@ -4,6 +4,7 @@ import { Button } from "@/components/button/Button";
 import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel";
 import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
 import { ScrollArea } from "@/components/scroll-area";
+import { PromptFlowPanel } from "@/components/prompt-flow/PromptFlowPanel";
 import {
   Drawer,
   DrawerClose,
@@ -147,7 +148,7 @@ export function AppLayout({
           </DrawerContent>
         </Drawer>
         
-        {/* Timeline Panel - Drawer (for both mobile and desktop) */}
+        {/* Prompt Flow is now integrated directly in the workspace panel */}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { scheduleTools } from "./schedule-tools";
 import { secretsTools } from "./secrets-tools";
 import { testEndpoint } from "./network-tools"; // Import network tools
 import { getCloudflareWorkerBindings } from "./cloudflare-bindings-tool";
+import { promptFlowTools } from "./prompt-flow-tools"; // Import prompt flow tools
 
 // Combine all tools into a single object
 export const tools = {
@@ -19,6 +20,7 @@ export const tools = {
   getCloudflareWorkerBindings,
   ...scheduleTools,
   ...secretsTools,
+  ...promptFlowTools, // Add prompt flow tools
 };
 
 // Combine all executions into a single object
@@ -34,3 +36,4 @@ export { scheduleTools } from "./schedule-tools";
 export { secretsTools } from "./secrets-tools";
 export { testEndpoint } from "./network-tools"; // Export network tool correctly
 export { getCloudflareWorkerBindings } from "./cloudflare-bindings-tool";
+export { promptFlowTools } from "./prompt-flow-tools"; // Export prompt flow tools

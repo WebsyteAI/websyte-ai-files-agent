@@ -21,7 +21,7 @@ export default function Chat() {
   // Separate states for panel visibility
   const [isTimelineOpen, setIsTimelineOpen] = useState(false); // Combined mobile/desktop state initially false
   const [isWorkspacePanelOpen, setIsWorkspacePanelOpen] = useState(false); // Combined mobile/desktop state initially false
-  const [isPromptFlowOpen, setIsPromptFlowOpen] = useState(false); // State for prompt flow panel
+  // No need for isPromptFlowOpen state since the prompt flow is always displayed in the workspace panel
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
   const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
   const [commitHistoryLoading, setCommitHistoryLoading] = useState(false);
@@ -244,7 +244,7 @@ export default function Chat() {
           setShowDebug={setShowDebug}
           setIsTimelineOpen={setIsTimelineOpen}
           setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
-          setIsPromptFlowOpen={setIsPromptFlowOpen}
+          setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
           clearHistory={clearHistory}
           messages={agentMessages}
           addToolResult={addToolResult}
@@ -268,8 +268,8 @@ export default function Chat() {
       setIsTimelineOpen={setIsTimelineOpen}
       isWorkspacePanelOpen={isWorkspacePanelOpen}
       setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
-      isPromptFlowOpen={isPromptFlowOpen}
-      setIsPromptFlowOpen={setIsPromptFlowOpen}
+      isPromptFlowOpen={false} // Dummy value since we don't use this anymore
+      setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
       isMobile={isMobile}
       agentState={agentState}
       agentStateLoading={agentStateLoading}

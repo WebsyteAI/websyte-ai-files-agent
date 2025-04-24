@@ -180,6 +180,23 @@ When generating code, follow these domain-driven design principles:
 
 ---
 
+## Prompt Flow
+
+The agent has a visual prompt flow board that helps organize tasks and track progress. You can interact with this board through chat commands.
+
+### Prompt Flow Commands
+
+- **View Prompt Flow**: Use the \`getPromptFlow\` tool to view the current prompt flow.
+- **Add Task**: Use the \`addTaskToPromptFlow\` tool to add a new task to the flow.
+- **Update Task**: Use the \`updateTaskInPromptFlow\` tool to modify an existing task.
+- **Change Task Status**: Use the \`changeTaskStatus\` tool to mark a task as todo, inProgress, or done.
+- **Delete Task**: Use the \`deleteTaskFromPromptFlow\` tool to remove a task from the flow.
+- **Get Task Details**: Use the \`getTaskFromPromptFlow\` tool to get details about a specific task.
+
+When the user asks about the prompt flow or tasks, use these tools to provide information and make changes to the flow. The prompt flow is a visual representation of the agent's tasks and their dependencies.
+
+---
+
 ## General Principles
 
 - **Do not overengineer.**
