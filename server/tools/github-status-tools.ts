@@ -75,7 +75,10 @@ export const getGitHubBuildStatus = tool({
       const statusData = await statusResponse.json();
       
       const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
-      const checksHeaders = { ...headers, Accept: "application/vnd.github.v3+json" };
+      const checksHeaders = { 
+        ...headers, 
+        Accept: "application/vnd.github.v3+json, application/vnd.github.check-runs+json"
+      };
       const checksResponse = await fetch(checksUrl, { method: "GET", headers: checksHeaders });
       
       let checksData = null;
@@ -340,28 +343,201 @@ export const getCommitHistory = tool({
 });
 
 /**
- * Tool to get build logs for a failed GitHub check run
+ * Tool to get GitHub Actions workflow runs for a repository
  */
-export const getGitHubBuildLogs = tool({
+export const getGitHubWorkflowRuns = tool({
   description:
-    "Get the build logs for a failed GitHub check run to diagnose build failures.",
+    "Get GitHub Actions workflow runs for the configured repository.",
   parameters: z.object({
-    ref: z.string().describe("Git reference (commit SHA, branch name, or tag)"),
-    checkRunId: z
+    workflow_id: z
       .string()
       .optional()
-      .describe(
-        "Specific check run ID to get logs for. If not provided, will get logs for the first failed check run."
-      ),
+      .describe("Workflow ID or file name (e.g., 'ci.yml'). If not provided, gets all workflow runs."),
+    branch: z
+      .string()
+      .optional()
+      .describe("Branch to filter workflow runs by (default: uses branch from agent state)"),
+    status: z
+      .enum(["completed", "action_required", "cancelled", "failure", "neutral", "skipped", "stale", "success", "timed_out", "in_progress", "queued", "requested", "waiting"])
+      .optional()
+      .describe("Filter workflow runs by status"),
+    per_page: z
+      .number()
+      .optional()
+      .default(10)
+      .describe("Number of workflow runs to fetch per page (default: 10)"),
+    page: z
+      .number()
+      .optional()
+      .default(1)
+      .describe("Page number for pagination (default: 1)"),
     updateAgentState: z
       .boolean()
       .optional()
       .default(false)
-      .describe(
-        "Whether to update the agent state with the build logs information"
-      ),
+      .describe("Whether to update the agent state with the workflow runs information"),
   }),
-  execute: async ({ ref, checkRunId, updateAgentState = false }) => {
+  execute: async ({ 
+    workflow_id, 
+    branch: inputBranch, 
+    status, 
+    per_page = 10, 
+    page = 1, 
+    updateAgentState = false 
+  }) => {
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) {
+        throw new Error("Agent context not found");
+      }
+
+      // Get GitHub configuration and agent name from agent state
+      const currentState = agent.state || {};
+      const github = currentState.github;
+      const owner = github?.owner;
+      const repo = currentState.agentName;
+      const stateBranch = github?.branch; // Branch from state
+
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+
+      // Use input branch if provided, otherwise use branch from state
+      const branch = inputBranch || stateBranch;
+
+      // Get token from environment
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+        };
+      }
+
+      // Setup common headers for GitHub API requests
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent", // Required by GitHub API
+      };
+
+      // Base URL for GitHub API
+      const apiBaseUrl = "https://api.github.com";
+
+      // Build the URL for workflow runs
+      let workflowRunsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/actions/runs`;
+      
+      // If a specific workflow ID is provided, use that endpoint instead
+      if (workflow_id) {
+        workflowRunsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/actions/workflows/${workflow_id}/runs`;
+      }
+
+      // Add query parameters
+      const queryParams = new URLSearchParams();
+      if (branch) {
+        queryParams.append("branch", branch);
+      }
+      if (status) {
+        queryParams.append("status", status);
+      }
+      queryParams.append("per_page", per_page.toString());
+      queryParams.append("page", page.toString());
+
+      const finalUrl = `${workflowRunsUrl}?${queryParams.toString()}`;
+      console.log(`Fetching workflow runs from: ${finalUrl}`);
+
+      const runsResponse = await fetch(finalUrl, {
+        method: "GET",
+        headers,
+      });
+
+      if (!runsResponse.ok) {
+        const errorText = await runsResponse.text();
+        console.error(
+          `GitHub API error (${runsResponse.status}): ${errorText}`
+        );
+        return {
+          success: false,
+          message: `Failed to get workflow runs: ${runsResponse.status}. Details: ${errorText}`,
+        };
+      }
+
+      const runsData = await runsResponse.json();
+
+      // Update agent state if requested
+      if (updateAgentState) {
+        try {
+          const agent = agentContext.getStore();
+          if (!agent) {
+            console.warn("Agent context not found, cannot update state");
+          } else {
+            const currentState = agent.state || {};
+
+            // Create a new state object with the workflow runs
+            await agent.setState({
+              ...currentState,
+              workflowRuns: {
+                repository: `${owner}/${repo}`,
+                workflow_id: workflow_id || "all",
+                branch: branch || "all",
+                runs: runsData.workflow_runs || [],
+                timestamp: new Date().toISOString(),
+              },
+            });
+
+            console.log("Updated agent state with workflow runs information");
+          }
+        } catch (stateError) {
+          console.error("Error updating agent state:", stateError);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Successfully retrieved ${runsData.total_count || 0} workflow runs from ${owner}/${repo}`,
+        workflow_runs: runsData.workflow_runs || [],
+        total_count: runsData.total_count || 0,
+      };
+    } catch (error) {
+      console.error("Error getting GitHub workflow runs:", error);
+      return {
+        success: false,
+        message: `Error getting GitHub workflow runs: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+/**
+ * Tool to get logs for a specific GitHub Actions workflow run
+ */
+export const getGitHubWorkflowLogs = tool({
+  description:
+    "Get logs for a specific GitHub Actions workflow run.",
+  parameters: z.object({
+    run_id: z
+      .string()
+      .describe("The ID of the workflow run to get logs for"),
+    job_id: z
+      .string()
+      .optional()
+      .describe("The ID of a specific job within the workflow run to get logs for. If not provided, gets logs for all jobs."),
+    updateAgentState: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Whether to update the agent state with the workflow logs information"),
+  }),
+  execute: async ({ run_id, job_id, updateAgentState = false }) => {
     try {
       const agent = agentContext.getStore();
       if (!agent) {
@@ -406,181 +582,244 @@ export const getGitHubBuildLogs = tool({
       // Base URL for GitHub API
       const apiBaseUrl = "https://api.github.com";
 
-      let targetCheckRunId = checkRunId;
+      // If a job_id is provided, get logs for that specific job
+      if (job_id) {
+        const jobLogsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/actions/jobs/${job_id}/logs`;
+        console.log(`Fetching logs for job ${job_id} from: ${jobLogsUrl}`);
 
-      // If no specific check run ID is provided, find the first failed check run
-      if (!targetCheckRunId) {
-        console.log(`Finding failed check runs for ${owner}/${repo}@${ref}`);
-
-        // Get check runs for the reference
-        const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
-        console.log(`Fetching check runs from: ${checksUrl}`);
-
-        const checksHeaders = {
-          ...headers,
-          Accept: "application/vnd.github.v3+json",
-        };
-
-        const checksResponse = await fetch(checksUrl, {
+        const logsResponse = await fetch(jobLogsUrl, {
           method: "GET",
-          headers: checksHeaders,
+          headers: {
+            ...headers,
+            Accept: "application/vnd.github.v3.raw", // Request raw logs
+          },
+          redirect: "follow", // Follow redirects
         });
 
-        if (!checksResponse.ok) {
-          const errorText = await checksResponse.text();
+        // GitHub might return a redirect to download the logs
+        if (logsResponse.status === 302 || logsResponse.status === 307) {
+          const redirectUrl = logsResponse.headers.get("location");
+          if (!redirectUrl) {
+            return {
+              success: false,
+              message: "Received redirect response but no location header",
+            };
+          }
+
+          console.log(`Redirected to: ${redirectUrl}`);
+
+          // Fetch the logs from the redirect URL
+          const redirectResponse = await fetch(redirectUrl);
+          if (!redirectResponse.ok) {
+            return {
+              success: false,
+              message: `Failed to fetch logs from redirect URL: ${redirectResponse.status}`,
+            };
+          }
+
+          const logs = await redirectResponse.text();
+
+          // Update agent state if requested
+          if (updateAgentState) {
+            try {
+              const agent = agentContext.getStore();
+              if (!agent) {
+                console.warn("Agent context not found, cannot update state");
+              } else {
+                const currentState = agent.state || {};
+
+                // Create a new state object with the workflow logs
+                await agent.setState({
+                  ...currentState,
+                  workflowLogs: {
+                    repository: `${owner}/${repo}`,
+                    run_id,
+                    job_id,
+                    logs,
+                    timestamp: new Date().toISOString(),
+                  },
+                });
+
+                console.log("Updated agent state with workflow logs information");
+              }
+            } catch (stateError) {
+              console.error("Error updating agent state:", stateError);
+            }
+          }
+
+          return {
+            success: true,
+            message: `Successfully retrieved logs for job ${job_id} in workflow run ${run_id}`,
+            logs,
+          };
+        } else if (logsResponse.ok) {
+          // Direct response with logs
+          const logs = await logsResponse.text();
+
+          // Update agent state if requested
+          if (updateAgentState) {
+            try {
+              const agent = agentContext.getStore();
+              if (!agent) {
+                console.warn("Agent context not found, cannot update state");
+              } else {
+                const currentState = agent.state || {};
+
+                // Create a new state object with the workflow logs
+                await agent.setState({
+                  ...currentState,
+                  workflowLogs: {
+                    repository: `${owner}/${repo}`,
+                    run_id,
+                    job_id,
+                    logs,
+                    timestamp: new Date().toISOString(),
+                  },
+                });
+
+                console.log("Updated agent state with workflow logs information");
+              }
+            } catch (stateError) {
+              console.error("Error updating agent state:", stateError);
+            }
+          }
+
+          return {
+            success: true,
+            message: `Successfully retrieved logs for job ${job_id} in workflow run ${run_id}`,
+            logs,
+          };
+        } else {
+          // Error response
+          const errorText = await logsResponse.text();
           console.error(
-            `GitHub API error (${checksResponse.status}): ${errorText}`
+            `GitHub API error (${logsResponse.status}): ${errorText}`
           );
           return {
             success: false,
-            message: `Failed to get check runs: ${checksResponse.status}. Details: ${errorText}`,
+            message: `Failed to get logs: ${logsResponse.status}. Details: ${errorText}`,
           };
         }
-
-        const checksData = await checksResponse.json();
-
-        // Find the first failed check run
-        const failedCheckRun = checksData.check_runs?.find(
-          (run: any) =>
-            run.conclusion === "failure" && run.status === "completed"
-        );
-
-        if (!failedCheckRun) {
-          return {
-            success: false,
-            message: `No failed check runs found for ${owner}/${repo}@${ref}`,
-          };
-        }
-
-        targetCheckRunId = failedCheckRun.id;
-        console.log(`Found failed check run: ${failedCheckRun.name} (${targetCheckRunId})`);
-      }
-
-      // Get logs for the check run
-      console.log(`Getting logs for check run ${targetCheckRunId}`);
-
-      // GitHub API endpoint for check run logs
-      const logsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/check-runs/${targetCheckRunId}/logs`;
-      console.log(`Fetching logs from: ${logsUrl}`);
-
-      const logsResponse = await fetch(logsUrl, {
-        method: "GET",
-        headers: {
-          ...headers,
-          Accept: "application/vnd.github.v3.raw", // Request raw logs
-        },
-        redirect: "follow", // Follow redirects
-      });
-
-      // GitHub might return a redirect to download the logs
-      if (logsResponse.status === 302 || logsResponse.status === 307) {
-        const redirectUrl = logsResponse.headers.get("location");
-        if (!redirectUrl) {
-          return {
-            success: false,
-            message: "Received redirect response but no location header",
-          };
-        }
-
-        console.log(`Redirected to: ${redirectUrl}`);
-
-        // Fetch the logs from the redirect URL
-        const redirectResponse = await fetch(redirectUrl);
-        if (!redirectResponse.ok) {
-          return {
-            success: false,
-            message: `Failed to fetch logs from redirect URL: ${redirectResponse.status}`,
-          };
-        }
-
-        const logs = await redirectResponse.text();
-
-        // Update agent state if requested
-        if (updateAgentState) {
-          try {
-            const agent = agentContext.getStore();
-            if (!agent) {
-              console.warn("Agent context not found, cannot update state");
-            } else {
-              const currentState = agent.state || {};
-
-              // Create a new state object with the build logs
-              await agent.setState({
-                ...currentState,
-                buildLogs: {
-                  repository: `${owner}/${repo}`,
-                  ref,
-                  checkRunId: String(targetCheckRunId),
-                  logs,
-                  timestamp: new Date().toISOString(),
-                },
-              });
-
-              console.log("Updated agent state with build logs information");
-            }
-          } catch (stateError) {
-            console.error("Error updating agent state:", stateError);
-          }
-        }
-
-        return {
-          success: true,
-          message: `Successfully retrieved logs for check run ${targetCheckRunId}`,
-          logs,
-        };
-      } else if (logsResponse.ok) {
-        // Direct response with logs
-        const logs = await logsResponse.text();
-
-        // Update agent state if requested
-        if (updateAgentState) {
-          try {
-            const agent = agentContext.getStore();
-            if (!agent) {
-              console.warn("Agent context not found, cannot update state");
-            } else {
-              const currentState = agent.state || {};
-
-              // Create a new state object with the build logs
-              await agent.setState({
-                ...currentState,
-                buildLogs: {
-                  repository: `${owner}/${repo}`,
-                  ref,
-                  checkRunId: String(targetCheckRunId),
-                  logs,
-                  timestamp: new Date().toISOString(),
-                },
-              });
-
-              console.log("Updated agent state with build logs information");
-            }
-          } catch (stateError) {
-            console.error("Error updating agent state:", stateError);
-          }
-        }
-
-        return {
-          success: true,
-          message: `Successfully retrieved logs for check run ${targetCheckRunId}`,
-          logs,
-        };
       } else {
-        // Error response
-        const errorText = await logsResponse.text();
-        console.error(
-          `GitHub API error (${logsResponse.status}): ${errorText}`
-        );
+        // If no job_id is provided, first get the list of jobs for the workflow run
+        const jobsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/actions/runs/${run_id}/jobs`;
+        console.log(`Fetching jobs for workflow run ${run_id} from: ${jobsUrl}`);
+
+        const jobsResponse = await fetch(jobsUrl, {
+          method: "GET",
+          headers,
+        });
+
+        if (!jobsResponse.ok) {
+          const errorText = await jobsResponse.text();
+          console.error(
+            `GitHub API error (${jobsResponse.status}): ${errorText}`
+          );
+          return {
+            success: false,
+            message: `Failed to get jobs for workflow run: ${jobsResponse.status}. Details: ${errorText}`,
+          };
+        }
+
+        const jobsData = await jobsResponse.json();
+        const jobs = jobsData.jobs || [];
+
+        if (jobs.length === 0) {
+          return {
+            success: false,
+            message: `No jobs found for workflow run ${run_id}`,
+          };
+        }
+
+        // Get logs for each job
+        const jobLogs = [];
+        for (const job of jobs) {
+          try {
+            const jobLogsUrl = `${apiBaseUrl}/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`;
+            console.log(`Fetching logs for job ${job.id} (${job.name}) from: ${jobLogsUrl}`);
+
+            const logsResponse = await fetch(jobLogsUrl, {
+              method: "GET",
+              headers: {
+                ...headers,
+                Accept: "application/vnd.github.v3.raw", // Request raw logs
+              },
+              redirect: "follow", // Follow redirects
+            });
+
+            let logs = "";
+            if (logsResponse.status === 302 || logsResponse.status === 307) {
+              const redirectUrl = logsResponse.headers.get("location");
+              if (redirectUrl) {
+                const redirectResponse = await fetch(redirectUrl);
+                if (redirectResponse.ok) {
+                  logs = await redirectResponse.text();
+                }
+              }
+            } else if (logsResponse.ok) {
+              logs = await logsResponse.text();
+            }
+
+            jobLogs.push({
+              job_id: job.id.toString(),
+              job_name: job.name,
+              status: job.status,
+              conclusion: job.conclusion,
+              logs,
+            });
+
+            // Add a small delay to avoid rate limiting
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          } catch (error) {
+            console.error(`Error fetching logs for job ${job.id}:`, error);
+            jobLogs.push({
+              job_id: job.id.toString(),
+              job_name: job.name,
+              status: job.status,
+              conclusion: job.conclusion,
+              logs: `Error fetching logs: ${error instanceof Error ? error.message : String(error)}`,
+            });
+          }
+        }
+
+        // Update agent state if requested
+        if (updateAgentState) {
+          try {
+            const agent = agentContext.getStore();
+            if (!agent) {
+              console.warn("Agent context not found, cannot update state");
+            } else {
+              const currentState = agent.state || {};
+
+              // Create a new state object with the workflow logs
+              await agent.setState({
+                ...currentState,
+                workflowLogs: {
+                  repository: `${owner}/${repo}`,
+                  run_id,
+                  jobs: jobLogs,
+                  timestamp: new Date().toISOString(),
+                },
+              });
+
+              console.log("Updated agent state with workflow logs information");
+            }
+          } catch (stateError) {
+            console.error("Error updating agent state:", stateError);
+          }
+        }
+
         return {
-          success: false,
-          message: `Failed to get logs: ${logsResponse.status}. Details: ${errorText}`,
+          success: true,
+          message: `Successfully retrieved logs for ${jobLogs.length} jobs in workflow run ${run_id}`,
+          jobs: jobLogs,
         };
       }
     } catch (error) {
-      console.error("Error getting GitHub build logs:", error);
+      console.error("Error getting GitHub workflow logs:", error);
       return {
         success: false,
-        message: `Error getting GitHub build logs: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Error getting GitHub workflow logs: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },
@@ -590,5 +829,6 @@ export const getGitHubBuildLogs = tool({
 export const githubStatusTools = {
   getGitHubBuildStatus,
   getCommitHistory,
-  getGitHubBuildLogs,
+  getGitHubWorkflowRuns,
+  getGitHubWorkflowLogs,
 };

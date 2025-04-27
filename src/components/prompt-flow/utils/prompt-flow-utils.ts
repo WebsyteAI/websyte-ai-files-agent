@@ -177,16 +177,20 @@ export const generateEdges = (tasks: AgentTask[]): Edge[] => {
     }
   });
   
-  // Connect main idea to all root tasks (tasks without a parent that aren't groups)
+  // Connect main idea only to root tasks that have no dependencies
+  // (tasks without a parent that aren't groups and don't depend on other tasks)
   const rootTasks = tasksByParent['root'].filter(task => task.type !== 'group');
   rootTasks.forEach(task => {
-    edges.push({
-      id: `main-idea-${task.id}`,
-      source: 'main-idea',
-      target: task.id,
-      type: 'smoothstep',
-      animated: true,
-    });
+    // Only connect to main idea if the task has no dependencies
+    if (task.dependencies.length === 0) {
+      edges.push({
+        id: `main-idea-${task.id}`,
+        source: 'main-idea',
+        target: task.id,
+        type: 'smoothstep',
+        animated: true,
+      });
+    }
   });
   
   // Connect main idea to all group nodes

@@ -62,7 +62,9 @@ The following files are **required** for any Cloudflare Workers project:
   "main": "src/index.ts",
   "dependencies": {
     "hono": "^4", // MANDATORY
-    "wrangler": "^4" // MANDATORY
+    "wrangler": "^4", // MANDATORY
+    "agents": "^0.0.46", // MANDATORY
+    "ai": "^4.2.8", // MANDATORY
   },
   "scripts": {
     "start": "wrangler dev",
@@ -76,6 +78,7 @@ The following files are **required** for any Cloudflare Workers project:
 \`\`\`jsonc
 {
   "name": "${agentName}",
+  "main": "src/index.ts", // Entry point for the application, adjust as needed
   "compatibility_date": "2025-03-07",
   "compatibility_flags": ["nodejs_compat"],
   // Add required bindings (KV, D1, Durable Objects, etc.)
@@ -89,10 +92,6 @@ The following files are **required** for any Cloudflare Workers project:
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["SomeAgentName"] }
-  ],
-  // If using workflows:
-  "workflows": [
-    { "name": "SOME_WORKFLOW_NAME", "class_name": "SomeWorkflowName" }
   ],
   "observability": { "enabled": true }
 }
@@ -124,7 +123,51 @@ jobs:
 \`\`\`
 
 ### 4. src/index.ts(x)
-- Main entry point for the application.
+Main entry point for the application. Use the following code as a template:
+\`\`\`typescript
+import { routeAgentRequest } from "agents";
+import type { ExecutionContext } from "@cloudflare/workers-types";
+// Import the agent class and context from the new file
+import { Chat, agentContext } from "./agent";
+
+// Note: The Chat class and agentContext are now defined in agent.ts
+export {Chat, agentContext};
+
+/**
+ * Worker entry point that routes incoming requests to the appropriate handler
+ */
+// Define the worker handler
+import { Agent, AgentNamespace, getAgentByName, routeAgentRequest } from 'agents';
+
+interface Env {
+  // Define your Agent on the environment here
+  // Passing your Agent class as a TypeScript type parameter allows you to call
+  // methods defined on your Agent.
+  MyAgent: AgentNamespace<MyAgent>;
+}
+
+export default {
+  async fetch(request, env, ctx): Promise<Response> {
+    // Routed addressing
+    // Automatically routes HTTP requests and/or WebSocket connections to /agents/:agent/:name
+    // Best for: connecting React apps directly to Agents using useAgent from agents/react
+    return (await routeAgentRequest(request, env)) || Response.json({ msg: 'no agent here' }, { status: 404 });
+
+    // Named addressing
+    // Best for: convenience method for creating or retrieving an agent by name/ID.
+    // Bringing your own routing, middleware and/or plugging into an existing
+    // application or framework.
+    let namedAgent = getAgentByName<Env, MyAgent>(env.MyAgent, 'my-unique-agent-id');
+    // Pass the incoming request straight to your Agent
+    let namedResp = (await namedAgent).fetch(request);
+    return namedResp
+  },
+} satisfies ExportedHandler<Env>;
+
+export class MyAgent extends Agent<Env> {
+  // Your Agent implementation goes here
+}
+\`\`\`
 
 ---
 

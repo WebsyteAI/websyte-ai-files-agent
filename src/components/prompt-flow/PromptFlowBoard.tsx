@@ -168,10 +168,12 @@ export function PromptFlowBoard({
         return;
       }
       
-      // Case 1: Connection from main idea to any node
+      // Case 1: Connection from main idea to a node
       if (connection.source === 'main-idea') {
-        // Allow connections from main idea to root-level tasks only
-        if (!targetTask.parentId) {
+        // Allow connections from main idea only to:
+        // 1. Root-level tasks with no dependencies (start of a new flow)
+        // 2. Group nodes (which are always root-level)
+        if (!targetTask.parentId && (targetTask.dependencies.length === 0 || targetTask.type === 'group')) {
           setEdges(addEdge(connection, edges));
         }
         return;
@@ -207,8 +209,21 @@ export function PromptFlowBoard({
           tasks: updatedTasks,
         });
         
-        // Add the edge
+        // Add the edge for the new dependency
         setEdges(addEdge(connection, edges));
+        
+        // If this is the first dependency for the target task, we need to remove
+        // any existing connection from main-idea to this task
+        if (targetTask.dependencies.length === 0) {
+          // Find and remove the edge from main-idea to this task
+          const mainIdeaEdgeId = `main-idea-${targetTask.id}`;
+          const updatedEdges = edges.filter(edge => edge.id !== mainIdeaEdgeId);
+          
+          // Only update if we actually removed an edge
+          if (updatedEdges.length < edges.length) {
+            setEdges(updatedEdges);
+          }
+        }
       } else if (sourceTask.parentId && targetTask.parentId && sourceTask.parentId === targetTask.parentId) {
         // Both are in the same group, but we don't allow connections between siblings
         // as per the user's request to only connect child nodes to their parent

@@ -62,6 +62,62 @@ export interface GitHubCommit {
   } | null;
 }
 
+/**
+ * GitHub workflow run structure
+ * Represents a GitHub Actions workflow run
+ */
+export interface GitHubWorkflowRun {
+  id: number;
+  name: string;
+  node_id: string;
+  head_branch: string;
+  head_sha: string;
+  path: string;
+  display_title: string;
+  run_number: number;
+  event: string;
+  status: string;
+  conclusion: string | null;
+  workflow_id: number;
+  check_suite_id: number;
+  check_suite_node_id: string;
+  url: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  run_attempt: number;
+  run_started_at: string;
+  jobs_url: string;
+  logs_url: string;
+  check_suite_url: string;
+  artifacts_url: string;
+  cancel_url: string;
+  rerun_url: string;
+  workflow_url: string;
+  repository: {
+    id: number;
+    name: string;
+    full_name: string;
+  };
+  head_repository: {
+    id: number;
+    name: string;
+    full_name: string;
+  };
+}
+
+/**
+ * GitHub workflow job log structure
+ * Represents logs for a specific job in a workflow run
+ */
+export interface GitHubWorkflowJobLog {
+  job_id: string;
+  job_name: string;
+  status: string;
+  conclusion: string | null;
+  logs: string;
+}
+
 // Import the PromptFlow type from the prompt flow utils
 import type { PromptFlow } from "../src/components/prompt-flow/utils/prompt-flow-utils";
 
@@ -89,6 +145,23 @@ export interface AgentState {
     repository: string;
     branch: string;
     commits: GitHubCommit[];
+    timestamp: string;
+  };
+  // GitHub Actions workflow runs
+  workflowRuns?: {
+    repository: string;
+    workflow_id: string;
+    branch: string;
+    runs: GitHubWorkflowRun[];
+    timestamp: string;
+  };
+  // GitHub Actions workflow logs
+  workflowLogs?: {
+    repository: string;
+    run_id: string;
+    job_id?: string;
+    logs?: string;
+    jobs?: GitHubWorkflowJobLog[];
     timestamp: string;
   };
   // GitHub configuration
