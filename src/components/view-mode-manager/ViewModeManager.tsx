@@ -18,9 +18,10 @@ interface ViewModeManagerProps {
   viewMode?: "list" | "graph" | "board";
   agentState?: any;
   onUpdateAgentState?: (newState: any) => void;
+  onSendToAgent?: (message: string) => void;
 }
 
-export function ViewModeManager({ files, viewMode = "list", agentState, onUpdateAgentState }: ViewModeManagerProps) {
+export function ViewModeManager({ files, viewMode = "list", agentState, onUpdateAgentState, onSendToAgent }: ViewModeManagerProps) {
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   
@@ -65,6 +66,7 @@ export function ViewModeManager({ files, viewMode = "list", agentState, onUpdate
                   });
                 }}
                 className="h-full"
+                onSendToAgent={onSendToAgent}
               />
             )}
           </div>

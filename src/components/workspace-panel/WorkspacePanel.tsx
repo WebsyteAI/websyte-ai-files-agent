@@ -65,6 +65,7 @@ interface WorkspacePanelProps {
   loading: boolean;
   onToggle?: () => void;
   onUpdateAgentState?: (newState: any) => void;
+  onSendToAgent?: (message: string) => void;
   // Removed isPromptFlowOpen prop since we're setting viewMode to "board" by default
 }
 
@@ -73,6 +74,7 @@ export function WorkspacePanel({
   loading,
   onToggle,
   onUpdateAgentState,
+  onSendToAgent,
 }: WorkspacePanelProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<string | null>(null);
@@ -395,6 +397,7 @@ export function WorkspacePanel({
             viewMode={viewMode}
             agentState={agentState}
             onUpdateAgentState={onUpdateAgentState}
+            onSendToAgent={onSendToAgent}
           />
         ) : (
           <div className="text-center text-neutral-500 p-4 text-base">

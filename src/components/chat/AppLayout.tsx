@@ -12,6 +12,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/drawer";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/resizable";
 
 interface AppLayoutProps {
   chatPanel: React.ReactNode;
@@ -28,6 +29,7 @@ interface AppLayoutProps {
   fetchCommitHistory: () => void;
   revertToCommit: (sha: string) => void;
   onUpdateAgentState?: (newState: any) => void;
+  onSendToAgent?: (message: string) => void;
 }
 
 export function AppLayout({
@@ -44,7 +46,8 @@ export function AppLayout({
   commitHistoryLoading,
   fetchCommitHistory,
   revertToCommit,
-  onUpdateAgentState
+  onUpdateAgentState,
+  onSendToAgent
 }: AppLayoutProps) {
   const [isChatVisible, setIsChatVisible] = useState(true);
   
@@ -54,45 +57,68 @@ export function AppLayout({
       onUpdateAgentState(newState);
     }
   };
+  
   return (
     <div className="h-[100dvh] w-full flex justify-center items-center bg-fixed overflow-hidden">
-      <div className="w-full h-[100dvh] mx-auto flex">
-        {/* Sliding Chat Panel */}
-        <div 
-          className={`h-full transition-all duration-300 ease-in-out ${
-            isChatVisible 
-              ? isMobile 
-                ? 'w-full absolute inset-0 z-50' 
-                : 'w-[550px]' 
-              : 'w-[0px]'
-          }`}
-        >
-          <div className="w-full h-full flex flex-col relative">
+      {/* Main Layout Container */}
+      <div className="w-full h-[100dvh] mx-auto relative">
+        {isMobile ? (
+          /* Mobile Layout */
+          <div className="w-full h-full flex">
+            {/* Mobile Chat Panel */}
             {isChatVisible && (
-              <div className="w-full h-full">
+              <div className="w-full h-full absolute inset-0 z-50">
                 {chatPanel}
               </div>
             )}
             
+            {/* Mobile Workspace Panel */}
+            <div className="h-full flex-1 flex flex-col">
+              <WorkspacePanel
+                agentState={agentState}
+                loading={agentStateLoading}
+                onUpdateAgentState={handleUpdateAgentState}
+                onSendToAgent={onSendToAgent}
+              />
+            </div>
           </div>
-        </div>
-
-        {/* Workspace Panel - Resizable */}
-        <div className="h-full flex-1 flex flex-col relative">
-          <WorkspacePanel
-            agentState={agentState}
-            loading={agentStateLoading}
-            onUpdateAgentState={handleUpdateAgentState}
-          />
-          {/* Chat Toggle Button */}
-          <button
-            onClick={() => setIsChatVisible(!isChatVisible)}
-            className={`absolute bottom-4 ${isMobile ? 'right-4' : 'left-4'} bg-[#F48120] hover:bg-[#F48120]/90 text-white p-3 rounded-full shadow-lg z-50 transition-all`}
-            title={isChatVisible ? "Hide chat" : "Show chat"}
-          >
-            {isChatVisible ? <X size={24} /> : <ChatCircle size={24} />}
-          </button>
-        </div>
+        ) : (
+          /* Desktop Layout - Resizable Panels */
+          <ResizablePanelGroup direction="horizontal" className="w-full h-full">
+            {/* Chat Panel */}
+            {isChatVisible && (
+              <>
+                <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+                  <div className="w-full h-full">
+                    {chatPanel}
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+              </>
+            )}
+            
+            {/* Workspace Panel */}
+            <ResizablePanel>
+              <div className="h-full flex-1 flex flex-col">
+                <WorkspacePanel
+                  agentState={agentState}
+                  loading={agentStateLoading}
+                  onUpdateAgentState={handleUpdateAgentState}
+                  onSendToAgent={onSendToAgent}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
+        
+        {/* Chat Toggle Button */}
+        <button
+          onClick={() => setIsChatVisible(!isChatVisible)}
+          className={`absolute bottom-4 ${isMobile ? 'right-4' : 'left-4'} bg-[#F48120] hover:bg-[#F48120]/90 text-white p-3 rounded-full shadow-lg z-50 transition-all`}
+          title={isChatVisible ? "Hide chat" : "Show chat"}
+        >
+          {isChatVisible ? <X size={24} /> : <ChatCircle size={24} />}
+        </button>
         
         {/* Workspace Panel - Mobile Only */}
         {isWorkspacePanelOpen && isMobile && (
@@ -116,6 +142,7 @@ export function AppLayout({
                   loading={agentStateLoading}
                   onToggle={() => setIsWorkspacePanelOpen(false)}
                   onUpdateAgentState={handleUpdateAgentState}
+                  onSendToAgent={onSendToAgent}
                 />
               </div>
             </div>
@@ -130,12 +157,12 @@ export function AppLayout({
             </DrawerHeader>
             <ScrollArea className="h-full">
               <div className="px-4">
-              <CommitTimeline
-                commitHistory={agentState?.commitHistory}
-                loading={commitHistoryLoading}
-                onRefresh={fetchCommitHistory}
-                onRevertToCommit={revertToCommit}
-              />
+                <CommitTimeline
+                  commitHistory={agentState?.commitHistory}
+                  loading={commitHistoryLoading}
+                  onRefresh={fetchCommitHistory}
+                  onRevertToCommit={revertToCommit}
+                />
               </div>
             </ScrollArea>
             <DrawerFooter className="flex-shrink-0 mt-auto">
@@ -145,8 +172,6 @@ export function AppLayout({
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
-        
-        {/* Prompt Flow is now integrated directly in the workspace panel */}
       </div>
     </div>
   );

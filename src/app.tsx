@@ -237,49 +237,67 @@ export default function Chat() {
   }, [agentState, commitHistoryLoading, agent]);
 
   return (
-    <AppLayout
-      chatPanel={
-        <ChatPanel
-          showDebug={showDebug}
-          setShowDebug={setShowDebug}
-          setIsTimelineOpen={setIsTimelineOpen}
-          setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
-          setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
-          clearHistory={clearHistory}
-          messages={agentMessages}
-          addToolResult={addToolResult}
-          messagesEndRef={messagesEndRef}
-          isLoading={isProcessing || isLoading}
-          input={agentInput}
-          handleInputChange={handleAgentInputChange}
-          handleSubmit={(e, options) => {
+      <AppLayout
+        chatPanel={
+          <ChatPanel
+            showDebug={showDebug}
+            setShowDebug={setShowDebug}
+            setIsTimelineOpen={setIsTimelineOpen}
+            setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
+            setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
+            clearHistory={clearHistory}
+            messages={agentMessages}
+            addToolResult={addToolResult}
+            messagesEndRef={messagesEndRef}
+            isLoading={isProcessing || isLoading}
+            input={agentInput}
+            handleInputChange={handleAgentInputChange}
+            handleSubmit={(e, options) => {
+              setIsProcessing(true);
+              // Use setTimeout to ensure isProcessing is set to false after the message is processed
+              handleAgentSubmit(e, options);
+              // Set a timeout to turn off the loading state after a short delay
+              setTimeout(() => {
+                setIsProcessing(false);
+              }, 500);
+            }}
+            pendingToolCallConfirmation={pendingToolCallConfirmation}
+          />
+        }
+        isTimelineOpen={isTimelineOpen}
+        setIsTimelineOpen={setIsTimelineOpen}
+        isWorkspacePanelOpen={isWorkspacePanelOpen}
+        setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
+        isPromptFlowOpen={false} // Dummy value since we don't use this anymore
+        setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
+        isMobile={isMobile}
+        agentState={agentState}
+        agentStateLoading={agentStateLoading}
+        commitHistoryLoading={commitHistoryLoading}
+        fetchCommitHistory={fetchCommitHistory}
+        revertToCommit={revertToCommit}
+        onUpdateAgentState={(newState) => {
+          console.log("Updating agent state:", newState);
+          agent.setState(newState);
+        }}
+        onSendToAgent={(message: string) => {
+          // Create a synthetic event to pass to handleAgentSubmit
+          const syntheticEvent = {
+            preventDefault: () => {},
+          } as React.FormEvent;
+          
+          // Set the input value to the message from the task
+          handleAgentInputChange({ target: { value: message } } as React.ChangeEvent<HTMLTextAreaElement>);
+          
+          // Submit the message
+          setTimeout(() => {
             setIsProcessing(true);
-            // Use setTimeout to ensure isProcessing is set to false after the message is processed
-            handleAgentSubmit(e, options);
-            // Set a timeout to turn off the loading state after a short delay
+            handleAgentSubmit(syntheticEvent);
             setTimeout(() => {
               setIsProcessing(false);
             }, 500);
-          }}
-          pendingToolCallConfirmation={pendingToolCallConfirmation}
-        />
-      }
-      isTimelineOpen={isTimelineOpen}
-      setIsTimelineOpen={setIsTimelineOpen}
-      isWorkspacePanelOpen={isWorkspacePanelOpen}
-      setIsWorkspacePanelOpen={setIsWorkspacePanelOpen}
-      isPromptFlowOpen={false} // Dummy value since we don't use this anymore
-      setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
-      isMobile={isMobile}
-      agentState={agentState}
-      agentStateLoading={agentStateLoading}
-      commitHistoryLoading={commitHistoryLoading}
-      fetchCommitHistory={fetchCommitHistory}
-      revertToCommit={revertToCommit}
-      onUpdateAgentState={(newState) => {
-        console.log("Updating agent state:", newState);
-        agent.setState(newState);
-      }}
-    />
+          }, 100); // Small delay to ensure the input is set
+        }}
+      />
   );
 }

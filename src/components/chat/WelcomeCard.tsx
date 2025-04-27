@@ -10,24 +10,23 @@ export function WelcomeCard() {
             <Robot size={24} />
           </div>
           <h3 className="font-semibold text-lg">
-            Welcome to AI Chat
+            Welcome to Prompt Flow
           </h3>
           <p className="text-muted-foreground text-sm">
-            Start a conversation with your AI assistant. Try asking
-            about:
+            Visualize and manage your agent development workflow. You can:
           </p>
           <ul className="text-sm text-left space-y-2">
             <li className="flex items-center gap-2">
               <span className="text-[#F48120]">•</span>
-              <span>Weather information for any city</span>
+              <span>Create and organize tasks with dependencies</span>
             </li>
             <li className="flex items-center gap-2">
               <span className="text-[#F48120]">•</span>
-              <span>Local time in different locations</span>
+              <span>Group related tasks into logical categories</span>
             </li>
             <li className="flex items-center gap-2">
               <span className="text-[#F48120]">•</span>
-              <span>Schedule tasks for later</span>
+              <span>Track progress with todo, in-progress, and done states</span>
             </li>
           </ul>
         </div>

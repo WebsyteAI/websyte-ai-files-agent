@@ -36,12 +36,14 @@ interface PromptFlowBoardProps {
   promptFlow: PromptFlow;
   onPromptFlowChange: (updatedFlow: PromptFlow) => void;
   className?: string;
+  onSendToAgent?: (message: string) => void;
 }
 
 export function PromptFlowBoard({ 
   promptFlow, 
   onPromptFlowChange,
-  className = ''
+  className = '',
+  onSendToAgent
 }: PromptFlowBoardProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   
@@ -122,6 +124,15 @@ export function PromptFlowBoard({
     });
   }, [promptFlow, onPromptFlowChange]);
   
+  // Handle sending task to agent
+  const handleSendToAgent = useCallback((task: AgentTask) => {
+    if (onSendToAgent) {
+      // Format the task information as a message
+      const message = `Task from Prompt Flow:\n\nTitle: ${task.title}\nCategory: ${task.category}\nDescription: ${task.description}`;
+      onSendToAgent(message);
+    }
+  }, [onSendToAgent]);
+  
   // Update nodes and edges when promptFlow changes or filter changes
   useEffect(() => {
     // Filter tasks based on status filter
@@ -132,17 +143,18 @@ export function PromptFlowBoard({
     // Generate nodes with the status change handler
     const newNodes = generateNodes(filteredTasks, promptFlow.mainIdea);
     
-    // Add the status change and delete handlers to each task node
+    // Add the status change, delete, and send to agent handlers to each task node
     newNodes.forEach(node => {
       if (node.type === 'taskNode') {
         node.data.onStatusChange = handleTaskStatusChange;
         node.data.onDelete = handleDeleteTask;
+        node.data.onSendToAgent = handleSendToAgent;
       }
     });
     
     setNodes(newNodes);
     setEdges(generateEdges(filteredTasks));
-  }, [promptFlow, statusFilter, setNodes, setEdges, handleTaskStatusChange, handleDeleteTask]);
+  }, [promptFlow, statusFilter, setNodes, setEdges, handleTaskStatusChange, handleDeleteTask, handleSendToAgent]);
   
   // Handle edge connections
   const onConnect = useCallback(

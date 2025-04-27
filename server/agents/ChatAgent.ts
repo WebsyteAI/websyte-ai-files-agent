@@ -17,7 +17,6 @@ import type { AgentState, Env } from "../types";
 
 // Import domain modules (to be implemented)
 import { FilesystemModule } from "./FilesystemModule";
-import { GitHubModule } from "./GitHubModule";
 import { SchedulerModule } from "./SchedulerModule";
 
 const model = openai("gpt-4.1");
@@ -48,14 +47,12 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
 
   // Domain modules (all share the same state)
   filesystem: FilesystemModule;
-  github: GitHubModule;
   scheduler: SchedulerModule;
 
   constructor(ctx: any, env: Env) {
     super(ctx, env);
     // Pass the shared state to each module
     this.filesystem = new FilesystemModule(this.state);
-    this.github = new GitHubModule(this.state);
     this.scheduler = new SchedulerModule(this.state);
   }
 

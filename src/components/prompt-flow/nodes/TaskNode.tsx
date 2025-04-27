@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import type { AgentTask } from '../utils/prompt-flow-utils';
 import { CATEGORY_COLORS } from '../utils/prompt-flow-utils';
-import { X } from '@phosphor-icons/react';
+import { X, PaperPlaneTilt } from '@phosphor-icons/react';
 
 interface TaskNodeProps {
   data: {
     task: AgentTask;
     onStatusChange: (newStatus: 'todo' | 'inProgress' | 'done') => void;
     onDelete?: (taskId: string) => void;
+    onSendToAgent?: (task: AgentTask) => void;
   };
   isConnectable: boolean;
 }
 
 export function TaskNode({ data, isConnectable }: TaskNodeProps) {
-  const { task, onStatusChange, onDelete } = data;
+  const { task, onStatusChange, onDelete, onSendToAgent } = data;
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Get color based on category
@@ -47,19 +48,35 @@ export function TaskNode({ data, isConnectable }: TaskNodeProps) {
       <div className="flex justify-between items-start">
         <div className="font-medium text-sm dark:text-white">{task.title}</div>
         
-        {/* Delete button */}
-        {onDelete && (
+        <div className="flex items-center gap-1">
+          {/* Send to Agent button */}
           <button
-            className="text-red-500 hover:text-red-700 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900"
+            className="text-blue-500 hover:text-blue-700 rounded-full p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900"
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(task.id);
+              if (onSendToAgent) {
+                onSendToAgent(task);
+              }
             }}
-            title="Delete task"
+            title="Send to Agent"
           >
-            <X size={12} weight="bold" />
+            <PaperPlaneTilt size={12} weight="bold" />
           </button>
-        )}
+          
+          {/* Delete button */}
+          {onDelete && (
+            <button
+              className="text-red-500 hover:text-red-700 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(task.id);
+              }}
+              title="Delete task"
+            >
+              <X size={12} weight="bold" />
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Toggle description visibility */}

@@ -5,7 +5,6 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { agentContext } from "../agent";
-import { GitHubModule } from "../agents/GitHubModule";
 import type { GitHubBuildStatus } from "../types";
 
 /**
@@ -25,10 +24,120 @@ export const getGitHubBuildStatus = tool({
       ),
   }),
   execute: async ({ ref, updateAgentState = false }) => {
-    const agent = agentContext.getStore();
-    if (!agent) throw new Error("Agent context not found");
-    const github = new GitHubModule(agent.state);
-    return await github.getBuildStatus(ref, updateAgentState);
+    try {
+      const agent = agentContext.getStore();
+      if (!agent) throw new Error("Agent context not found");
+      
+      const github = agent.state.github;
+      const owner = github?.owner;
+      const repo = agent.state.agentName;
+      
+      if (!owner) {
+        return {
+          success: false,
+          message: "GitHub owner not configured in agent state.",
+        };
+      }
+      
+      if (!repo) {
+        return {
+          success: false,
+          message: "Agent name (repository name) not found in agent state.",
+        };
+      }
+      
+      const authToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      if (!authToken) {
+        return {
+          success: false,
+          message: "GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.",
+        };
+      }
+      
+      const headers = {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `token ${authToken}`,
+        "User-Agent": "WebsyteAI-Agent",
+      };
+      
+      const apiBaseUrl = "https://api.github.com";
+      const statusUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/status`;
+      
+      const statusResponse = await fetch(statusUrl, { method: "GET", headers });
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        return {
+          success: false,
+          message: `Failed to get build status: ${statusResponse.status}. Details: ${errorText}`,
+        };
+      }
+      
+      const statusData = await statusResponse.json();
+      
+      const checksUrl = `${apiBaseUrl}/repos/${owner}/${repo}/commits/${ref}/check-runs`;
+      const checksHeaders = { ...headers, Accept: "application/vnd.github.v3+json" };
+      const checksResponse = await fetch(checksUrl, { method: "GET", headers: checksHeaders });
+      
+      let checksData = null;
+      if (checksResponse.ok) {
+        checksData = await checksResponse.json();
+      }
+      
+      const buildStatus: GitHubBuildStatus = {
+        state: statusData.state,
+        statuses: statusData.statuses || [],
+      };
+      
+      if (checksData && checksData.check_runs) {
+        buildStatus.check_runs = checksData.check_runs.map((run: any) => ({
+          name: run.name,
+          status: run.status,
+          conclusion: run.conclusion,
+          started_at: run.started_at,
+          completed_at: run.completed_at,
+          html_url: run.html_url,
+          app: { name: run.app.name },
+        }));
+      }
+      
+      if (updateAgentState) {
+        await agent.setState({
+          ...agent.state,
+          buildStatus: {
+            repository: `${owner}/${repo}`,
+            ref,
+            status: buildStatus,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+      
+      const summary = {
+        repository: `${owner}/${repo}`,
+        ref,
+        state: buildStatus.state,
+        statusCount: buildStatus.statuses.length,
+        checkRunsCount: buildStatus.check_runs?.length || 0,
+        failedStatuses: buildStatus.statuses.filter((s: any) => s.state !== "success").length,
+        failedCheckRuns:
+          buildStatus.check_runs?.filter((c: any) => c.conclusion !== "success" && c.status === "completed").length || 0,
+        pendingCheckRuns:
+          buildStatus.check_runs?.filter((c: any) => c.status !== "completed").length || 0,
+      };
+      
+      return {
+        success: true,
+        message: `Successfully retrieved build status for ${owner}/${repo}@${ref}`,
+        summary,
+        buildStatus,
+      };
+    } catch (error) {
+      console.error("Error getting build status:", error);
+      return {
+        success: false,
+        message: `Error getting build status: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   },
 });
 
