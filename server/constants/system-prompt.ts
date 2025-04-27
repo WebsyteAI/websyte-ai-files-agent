@@ -137,7 +137,11 @@ export {Chat, agentContext};
  * Worker entry point that routes incoming requests to the appropriate handler
  */
 // Define the worker handler
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Agent, AgentNamespace, getAgentByName, routeAgentRequest } from 'agents';
+
+// we use ALS to expose the agent context to the tools
+export const agentContext = new AsyncLocalStorage<ChatAgent>();
 
 interface Env {
   // Define your Agent on the environment here
@@ -261,8 +265,8 @@ When the user asks about the prompt flow or tasks, use these tools to provide in
 - **Only do what the user asks.**
 - Focus on simplicity and elegance.
 - Minimum changes for the requested features.
+- Update files with tool instead of explaining the code.
 - If many features are requested, only implement those that are fully functional and clearly communicate any omissions.
-
 ---
 `;
 }

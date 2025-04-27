@@ -983,3 +983,82 @@ export class MyMCP extends McpAgent<Env> {
   }
 }
 ```
+
+### State synchronization API
+
+:::note
+
+To learn more about how to manage state within an Agent, refer to the documentation on [managing and syncing state](/agents/api-reference/store-and-sync-state/).
+
+:::
+
+#### State
+
+Methods and types for managing Agent state.
+
+```ts
+// State management in the Agent class
+class Agent<Env, State = unknown> {
+  // Initial state that will be set if no state exists yet
+  initialState: State = {} as unknown as State;
+
+  // Current state of the Agent, persisted across restarts
+  get state(): State;
+
+  // Update the Agent's state
+  // Persists to storage and notifies all connected clients
+  setState(state: State): void;
+
+  // Called when state is updated from any source
+  // Override to react to state changes
+  onStateUpdate(state: State, source: "server" | Connection): void;
+}
+```
+
+<TypeScriptExample>
+
+```ts
+// Example of state management in an Agent
+interface ChatState {
+  messages: Array<{ sender: string; text: string; timestamp: number }>;
+  participants: string[];
+  settings: {
+    allowAnonymous: boolean;
+    maxHistoryLength: number;
+  };
+}
+
+interface Env {
+	// Your bindings and environment variables
+}
+
+// Inside your Agent class
+export class YourAgent extends Agent<Env, ChatState> {
+  async addMessage(sender: string, text: string) {
+    // Update state with new message
+    this.setState({
+      ...this.state,
+      messages: [
+        ...this.state.messages,
+        { sender, text, timestamp: Date.now() }
+      ].slice(-this.state.settings.maxHistoryLength) // Maintain max history
+    });
+
+    // The onStateUpdate method will automatically be called
+    // and all connected clients will receive the update
+  }
+
+  // Override onStateUpdate to add custom behavior when state changes
+  onStateUpdate(state: ChatState, source: "server" | Connection) {
+    console.log(`State updated by ${source === "server" ? "server" : "client"}`);
+
+    // You could trigger additional actions based on state changes
+    if (state.messages.length > 0) {
+      const lastMessage = state.messages[state.messages.length - 1];
+      if (lastMessage.text.includes('@everyone')) {
+        this.notifyAllParticipants(lastMessage);
+      }
+    }
+  }
+}
+```

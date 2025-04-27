@@ -40,7 +40,7 @@ export function TaskNode({ data, isConnectable }: TaskNodeProps) {
       {/* Top handle for incoming connections */}
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         isConnectable={isConnectable}
         className="w-2 h-2 bg-gray-400"
       />
@@ -98,7 +98,7 @@ export function TaskNode({ data, isConnectable }: TaskNodeProps) {
       {/* Bottom handle for outgoing connections */}
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         isConnectable={isConnectable}
         className="w-2 h-2 bg-gray-400"
       />
