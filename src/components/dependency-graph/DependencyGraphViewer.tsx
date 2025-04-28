@@ -193,6 +193,7 @@ function DependencyGraph({ files, onFileSelect }: DependencyGraphViewerProps) {
                   expandedFiles={expandedFiles} 
                   toggleFileExpansion={toggleFileExpansion}
                   onClose={closeFileViewer}
+                  viewMode="graph"
                 />
               </div>
             </div>

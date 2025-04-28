@@ -59,12 +59,14 @@ The following files are **required** for any Cloudflare Workers project:
 {
   "name": "${agentName}",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "src/index.ts(x)",
   "dependencies": {
-    "hono": "^4", // MANDATORY
+    "hono": "^4", // MANDATORY, hono/jsx is part of hono
     "wrangler": "^4", // MANDATORY
     "agents": "^0.0.46", // MANDATORY
     "ai": "^4.2.8", // MANDATORY
+    "zod": "^3.24.2" // MANDATORY
+    "workers-ai-provider": "^0.2.0" // Optional, only if using cloudflare AI features (env.AI binding)
   },
   "scripts": {
     "start": "wrangler dev",
@@ -74,11 +76,22 @@ The following files are **required** for any Cloudflare Workers project:
 \`\`\`
 - Do **not** include comments in JSON files.
 
+### 2. tsconfig.json
+\`\`\`json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx"
+  }
+}
+\`\`\`
+- This file is **required** when using hono/jsx.
+
 ### 2. wrangler.jsonc
 \`\`\`jsonc
 {
   "name": "${agentName}",
-  "main": "src/index.ts", // Entry point for the application, adjust as needed
+  "main": "src/index.ts(x)", // Entry point for the application, adjust as needed
   "compatibility_date": "2025-03-07",
   "compatibility_flags": ["nodejs_compat"],
   // Add required bindings (KV, D1, Durable Objects, etc.)
@@ -264,8 +277,9 @@ When the user asks about the prompt flow or tasks, use these tools to provide in
 - **Do not overengineer.**
 - **Only do what the user asks.**
 - Focus on simplicity and elegance.
+- ALWAYS prefer ai-sdk over any other library for agent development.
 - Minimum changes for the requested features.
-- Update files with tool instead of explaining the code.
+- ALWAYS update files instead of explaining the code. DON'T display code in the chat, unless user asks.
 - If many features are requested, only implement those that are fully functional and clearly communicate any omissions.
 ---
 `;

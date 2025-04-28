@@ -15,13 +15,15 @@ interface FileContentsViewerProps {
   expandedFiles: Record<string, boolean>;
   toggleFileExpansion: (path: string) => void;
   onClose?: () => void;
+  viewMode?: "list" | "graph";
 }
 
 export function FileContentsViewer({ 
   files, 
   expandedFiles, 
   toggleFileExpansion,
-  onClose
+  onClose,
+  viewMode = "list"
 }: FileContentsViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
   
@@ -86,7 +88,7 @@ export function FileContentsViewer({
           {expandedFiles[path] && (
             <>
               <div className="px-0 h-full">
-                <div className="code-editor bg-neutral-50 dark:bg-neutral-900 overflow-auto border border-neutral-200 dark:border-neutral-800 rounded-sm text-xs md:text-sm h-full max-h-[calc(100vh-200px)]">
+                <div className={`code-editor bg-neutral-50 dark:bg-neutral-900 overflow-auto border border-neutral-200 dark:border-neutral-800 rounded-sm text-xs md:text-sm h-full ${viewMode !== "list" ? "max-h-[calc(100vh-200px)]" : ""}`}>
                   <CodeEditor code={fileData.content} filename={path} />
                 </div>
               </div>

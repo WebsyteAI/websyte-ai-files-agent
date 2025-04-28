@@ -40,6 +40,7 @@ export function ViewModeManager({ files, viewMode = "list", agentState, onUpdate
             files={files} 
             expandedFiles={expandedFiles}
             toggleFileExpansion={toggleFileExpansion}
+            viewMode="list"
           />
         ) : viewMode === "graph" ? (
           <DependencyGraphViewer 
