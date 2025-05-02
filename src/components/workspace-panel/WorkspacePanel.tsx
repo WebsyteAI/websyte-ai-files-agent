@@ -82,7 +82,7 @@ export function WorkspacePanel({
   const [isFetchingStatus, setIsFetchingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const initialFetchDone = useRef(false);
-  const [viewMode, setViewMode] = useState<"list" | "graph" | "board">("board");
+  const [viewMode, setViewMode] = useState<"list" | "graph" | "board">("graph");
 
   // Initialize all files as expanded by default
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>(
@@ -283,33 +283,33 @@ export function WorkspacePanel({
         </div>
 
         {/* Center: View toggle buttons */}
-        <div className="flex-1 flex justify-center items-center gap-2">
+        <div className="flex-1 flex flex-wrap justify-center items-center gap-2">
           <Button
             variant={viewMode === "list" ? "primary" : "secondary"}
             size="sm"
             onClick={() => setViewMode("list")}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 sm:gap-1 text-xs sm:text-sm"
           >
             <ListBullets size={16} />
-            <span>List View</span>
+            <span className="hidden sm:inline">List View</span>
           </Button>
           <Button
             variant={viewMode === "graph" ? "primary" : "secondary"}
             size="sm"
             onClick={() => setViewMode("graph")}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 sm:gap-1 text-xs sm:text-sm"
           >
             <Graph size={16} />
-            <span>Dependency Graph</span>
+            <span className="hidden sm:inline">Dependency Graph</span>
           </Button>
           <Button
             variant={viewMode === "board" ? "primary" : "secondary"}
             size="sm"
             onClick={() => setViewMode("board")}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 sm:gap-1 text-xs sm:text-sm"
           >
             <FlowArrow size={16} />
-            <span>Prompt Flow</span>
+            <span className="hidden sm:inline">Prompt Flow</span>
           </Button>
         </div>
 
