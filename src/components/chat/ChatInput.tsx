@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import { Button } from "@/components/button/Button";
 import { Textarea } from "@/components/textarea";
-import { PaperPlaneRight, CloudArrowUp, Hammer, Globe, GitPullRequest } from "@phosphor-icons/react";
+import { PaperPlaneRight, CloudArrowUp, Hammer, Globe, GitPullRequest, Square } from "@phosphor-icons/react";
 
 interface ChatInputProps {
   input: string;
@@ -9,6 +9,7 @@ interface ChatInputProps {
   handleSubmit: (e: FormEvent, options?: any) => void;
   pendingToolCallConfirmation: boolean;
   isLoading?: boolean;
+  handleCancel?: () => void;
 }
 
 export function ChatInput({
@@ -16,7 +17,8 @@ export function ChatInput({
   handleInputChange,
   handleSubmit,
   pendingToolCallConfirmation,
-  isLoading = false
+  isLoading = false,
+  handleCancel
 }: ChatInputProps) {
   return (
     <form
@@ -53,19 +55,32 @@ export function ChatInput({
             }}
           />
           
-          <div className="absolute right-2 bottom-2">
-            <Button
-              type="submit"
-              shape="square"
-              className="rounded-full h-8 w-8 flex-shrink-0 bg-[#F48120] hover:bg-[#F48120]/90 text-white"
-              disabled={pendingToolCallConfirmation || !input.trim() || isLoading}
-            >
-              {isLoading ? (
-                <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
-              ) : (
+          <div className="absolute right-2 bottom-2 flex gap-2">
+            {!isLoading ? (
+              <Button
+                type="submit"
+                shape="square"
+                className="rounded-full h-8 w-8 flex-shrink-0 bg-[#F48120] hover:bg-[#F48120]/90 text-white"
+                disabled={pendingToolCallConfirmation || !input.trim()}
+              >
                 <PaperPlaneRight size={16} />
-              )}
-            </Button>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                shape="square"
+                className="relative rounded-full h-8 w-8 flex-shrink-0 bg-[#F44336] hover:bg-[#F44336]/90 text-white flex items-center justify-center overflow-hidden"
+                onClick={handleCancel}
+                disabled={pendingToolCallConfirmation}
+                title="Stop message"
+              >
+                {/* Stop (square) icon */}
+                <Square size={16} weight="fill" />
+                
+                {/* Shimmer animation overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shimmer" />
+              </Button>
+            )}
           </div>
         </div>
         

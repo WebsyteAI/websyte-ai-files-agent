@@ -19,6 +19,7 @@ interface ChatPanelProps {
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (e: React.FormEvent, options?: any) => void;
   pendingToolCallConfirmation: boolean;
+  handleCancel?: () => void;
 }
 
 export function ChatPanel({
@@ -35,7 +36,8 @@ export function ChatPanel({
   input,
   handleInputChange,
   handleSubmit,
-  pendingToolCallConfirmation
+  pendingToolCallConfirmation,
+  handleCancel
 }: ChatPanelProps) {
   return (
     <div className="flex flex-col h-full bg-background/95 backdrop-blur-sm overflow-hidden border-r border-neutral-200 dark:border-neutral-800 transition-all">
@@ -57,6 +59,7 @@ export function ChatPanel({
           addToolResult={addToolResult}
           messagesEndRef={messagesEndRef}
           isLoading={isLoading}
+          pendingToolCallConfirmation={pendingToolCallConfirmation}
         />
       </div>
       
@@ -67,6 +70,7 @@ export function ChatPanel({
           handleSubmit={handleSubmit}
           pendingToolCallConfirmation={pendingToolCallConfirmation}
           isLoading={isLoading}
+          handleCancel={typeof handleCancel === "function" ? handleCancel : undefined}
         />
       </div>
     </div>

@@ -23,7 +23,6 @@ export default function Chat() {
   const [isWorkspacePanelOpen, setIsWorkspacePanelOpen] = useState(false); // Combined mobile/desktop state initially false
   // No need for isPromptFlowOpen state since the prompt flow is always displayed in the workspace panel
   const [agentState, setAgentState] = useState<any | null>(null); // Add state for agent state
-  const [agentStateLoading, setAgentStateLoading] = useState(true); // Add loading state
   const [commitHistoryLoading, setCommitHistoryLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false); // Track if we're on mobile
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -79,13 +78,9 @@ export default function Chat() {
     agent: "chat",
     name: workerId, // Set agent name to the worker ID
     onStateUpdate: (newState: any) => {
-      console.log("Agent state updated:", newState);
       setAgentState(newState);
-      setAgentStateLoading(false);
     },
   });
-
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const {
     messages: agentMessages,
@@ -94,7 +89,9 @@ export default function Chat() {
     handleSubmit: handleAgentSubmit,
     addToolResult,
     clearHistory,
-    isLoading
+    isLoading,
+    stop,
+    error,
   } = useAgentChat({
     agent,
     maxSteps: 10,
@@ -118,64 +115,6 @@ export default function Chat() {
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
-  const handleRemoveTask = async (id: string) => {
-    try {
-      // Since we can't directly call cancelSchedule, we'll just log it
-      console.log(`Request to remove task with ID: ${id}`);
-    } catch (error) {
-      console.error("Error removing task:", error);
-    }
-  };
-
-  // Fetch commit history from GitHub
-  const fetchCommitHistory = async () => {
-    setCommitHistoryLoading(true);
-    
-    try {
-      if (!agentState?.agentName) {
-        throw new Error("Agent name is missing in agent state. Cannot fetch commit history.");
-      }
-      
-      // Extract repository info from agent state if available
-      const repoInfo = agentState?.commitHistory?.repository?.split('/') || [];
-      const owner = repoInfo[0] || 'WebsyteAI'; // Default organization if not in state
-      const repo = agentState.agentName; // ALWAYS use agent name as repo name
-      const branch = agentState?.commitHistory?.branch || 'main'; // Default branch if not in state
-      
-      console.log(`Fetching commit history for ${owner}/${repo}/${branch}`);
-      
-      const response = await fetch('/api/agent/tool', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          tool: 'getCommitHistory',
-          params: {
-            owner,
-            repo,
-            branch,
-            updateAgentState: true, // Update agent state with commit history
-          }
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch commit history');
-      }
-      
-      // No need to set local state, tool updates agent state directly
-      // const result = await response.json(); 
-      // setCommitHistory(result.content); // REMOVED
-    } catch (error) {
-      console.error("Error fetching commit history:", error);
-      // Optionally set an error state here to display to the user
-    } finally {
-      setCommitHistoryLoading(false);
-    }
   };
 
   // Revert to a specific commit
@@ -219,22 +158,14 @@ export default function Chat() {
     }
   };
 
-  // Fetch commit history only once when the app loads and agent state is ready
-  useEffect(() => {
-    // Only run this effect once when agentState is first loaded
-    if (agentState && !agentState.initialCommitHistoryFetched && !commitHistoryLoading) {
-      // Set a flag to prevent this effect from running again
-      agent.setState({
-        ...agentState,
-        initialCommitHistoryFetched: true
-      });
-      
-      // We'll fetch commit history only if there are files
-      if (agentState.files && Object.keys(agentState.files).length > 0) {
-        fetchCommitHistory();
-      }
-    }
-  }, [agentState, commitHistoryLoading, agent]);
+  // Cancel in-progress message handler
+  // Use the built-in stop method from useAgentChat hook
+  const handleCancel = () => {
+    console.log("Cancel button clicked, using stop() method from hook");
+    
+    // Stop the agent chat - this will update isLoading state automatically
+    stop();
+  };
 
   return (
       <AppLayout
@@ -249,19 +180,16 @@ export default function Chat() {
             messages={agentMessages}
             addToolResult={addToolResult}
             messagesEndRef={messagesEndRef}
-            isLoading={isProcessing || isLoading}
+            isLoading={isLoading}
             input={agentInput}
             handleInputChange={handleAgentInputChange}
             handleSubmit={(e, options) => {
-              setIsProcessing(true);
-              // Use setTimeout to ensure isProcessing is set to false after the message is processed
+              // No need to update loading state as it's handled by the hook
               handleAgentSubmit(e, options);
-              // Set a timeout to turn off the loading state after a short delay
-              setTimeout(() => {
-                setIsProcessing(false);
-              }, 500);
+              // We'll let the handleCancel or the completion of the message update isLoading to false
             }}
             pendingToolCallConfirmation={pendingToolCallConfirmation}
+            handleCancel={handleCancel}
           />
         }
         isTimelineOpen={isTimelineOpen}
@@ -272,9 +200,7 @@ export default function Chat() {
         setIsPromptFlowOpen={() => {}} // Dummy function since we don't use this anymore
         isMobile={isMobile}
         agentState={agentState}
-        agentStateLoading={agentStateLoading}
         commitHistoryLoading={commitHistoryLoading}
-        fetchCommitHistory={fetchCommitHistory}
         revertToCommit={revertToCommit}
         onUpdateAgentState={(newState) => {
           console.log("Updating agent state:", newState);
@@ -291,11 +217,9 @@ export default function Chat() {
           
           // Submit the message
           setTimeout(() => {
-            setIsProcessing(true);
+            // No need to update loading state as it's handled by the hook
             handleAgentSubmit(syntheticEvent);
-            setTimeout(() => {
-              setIsProcessing(false);
-            }, 500);
+            // We'll let the handleCancel or the completion of the message update isLoading to false
           }, 100); // Small delay to ensure the input is set
         }}
       />

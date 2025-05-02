@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChatCircle, X } from "@phosphor-icons/react";
 import { Button } from "@/components/button/Button";
 import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel";
-import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
+// import { CommitTimeline } from "@/components/commit-timeline/CommitTimeline";
 import { ScrollArea } from "@/components/scroll-area";
 import {
   Drawer,
@@ -24,9 +24,8 @@ interface AppLayoutProps {
   setIsPromptFlowOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMobile: boolean;
   agentState: any | null;
-  agentStateLoading: boolean;
+  agentStateLoading?: boolean; // Make optional
   commitHistoryLoading: boolean;
-  fetchCommitHistory: () => void;
   revertToCommit: (sha: string) => void;
   onUpdateAgentState?: (newState: any) => void;
   onSendToAgent?: (message: string) => void;
@@ -44,7 +43,6 @@ export function AppLayout({
   agentState,
   agentStateLoading,
   commitHistoryLoading,
-  fetchCommitHistory,
   revertToCommit,
   onUpdateAgentState,
   onSendToAgent
@@ -76,7 +74,7 @@ export function AppLayout({
             <div className="h-full flex-1 flex flex-col">
               <WorkspacePanel
                 agentState={agentState}
-                loading={agentStateLoading}
+                loading={agentStateLoading || agentState === null}
                 onUpdateAgentState={handleUpdateAgentState}
                 onSendToAgent={onSendToAgent}
               />
@@ -102,7 +100,7 @@ export function AppLayout({
               <div className="h-full flex-1 flex flex-col">
                 <WorkspacePanel
                   agentState={agentState}
-                  loading={agentStateLoading}
+                  loading={agentStateLoading || agentState === null}
                   onUpdateAgentState={handleUpdateAgentState}
                   onSendToAgent={onSendToAgent}
                 />
@@ -139,7 +137,7 @@ export function AppLayout({
               <div className="flex-1 overflow-auto">
                 <WorkspacePanel
                   agentState={agentState}
-                  loading={agentStateLoading}
+                  loading={agentStateLoading || agentState === null}
                   onToggle={() => setIsWorkspacePanelOpen(false)}
                   onUpdateAgentState={handleUpdateAgentState}
                   onSendToAgent={onSendToAgent}
@@ -157,12 +155,11 @@ export function AppLayout({
             </DrawerHeader>
             <ScrollArea className="h-full">
               <div className="px-4">
-                <CommitTimeline
+                {/* <CommitTimeline
                   commitHistory={agentState?.commitHistory}
                   loading={commitHistoryLoading}
-                  onRefresh={fetchCommitHistory}
                   onRevertToCommit={revertToCommit}
-                />
+                /> */}
               </div>
             </ScrollArea>
             <DrawerFooter className="flex-shrink-0 mt-auto">

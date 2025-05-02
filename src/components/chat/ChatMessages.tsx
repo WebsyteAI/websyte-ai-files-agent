@@ -103,14 +103,16 @@ interface ChatMessagesProps {
   addToolResult: (result: { toolCallId: string; result: string }) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   isLoading?: boolean;
+  pendingToolCallConfirmation?: boolean;
 }
 
-export function ChatMessages({ 
-  messages, 
-  showDebug, 
+export function ChatMessages({
+  messages,
+  showDebug,
   addToolResult,
   messagesEndRef,
-  isLoading = false
+  isLoading = false,
+  pendingToolCallConfirmation = false
 }: ChatMessagesProps) {
   // Format time to a readable format
   const formatTime = (date: Date) => {
@@ -304,9 +306,14 @@ export function ChatMessages({
           );
         })
         )}
-        {isLoading && (
-          <div className="flex items-center justify-center my-4">
-            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 px-4 py-2 rounded-full">
+        {/* Only show loading indicator if we're actually loading and not in a tool confirmation state */}
+        {isLoading && !pendingToolCallConfirmation && (
+          <div className="flex items-center justify-center my-4" data-testid="loading-indicator">
+            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-900 px-4 py-2 rounded-full relative overflow-hidden">
+              {/* Shimmer animation background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer"></div>
+              
+              {/* Dots animation */}
               <div className="h-3 w-3 rounded-full bg-[#F48120] opacity-75 animate-pulse"></div>
               <div className="h-3 w-3 rounded-full bg-[#F48120] opacity-75 animate-pulse delay-150"></div>
               <div className="h-3 w-3 rounded-full bg-[#F48120] opacity-75 animate-pulse delay-300"></div>
