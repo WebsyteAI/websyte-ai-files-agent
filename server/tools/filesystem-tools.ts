@@ -1,11 +1,14 @@
 /**
  * Filesystem tools for the AI chat agent
  * Handles file operations within the agent's state
+ *
+ * This module contains both utility functions for file operations
+ * and the tools that expose these operations to the AI
  */
 import { tool } from "ai";
 import { z } from "zod";
 import { agentContext } from "../agent";
-import type { FileRecord } from "../types";
+import type { FileRecord, AgentState } from "../types";
 
 // Define the File schema for the flat file system
 export const FileSchema = z.object({
@@ -18,7 +21,54 @@ export const FileSchema = z.object({
     .describe("Whether the file is currently being streamed"),
 });
 
-import { FilesystemModule } from "../agents/FilesystemModule";
+/**
+ * Utility functions for file operations
+ * These were previously in FilesystemModule class
+ */
+
+/**
+ * Create or update a file in the agent state
+ * Returns "created" or "updated" based on the operation performed
+ */
+export function createOrUpdateFileInState(state: AgentState, path: string, content: string): "created" | "updated" {
+  // Ensure files object exists
+  const files = { ...(state.files || {}) };
+  const now = new Date().toISOString();
+  const fileExists = path in files;
+  
+  if (fileExists) {
+    files[path] = {
+      ...files[path],
+      content,
+      modified: now,
+    };
+  } else {
+    files[path] = {
+      content,
+      created: now,
+      modified: now,
+    };
+  }
+  
+  // Update state
+  state.files = files;
+  return fileExists ? "updated" : "created";
+}
+
+/**
+ * Delete a file from the agent state
+ * Returns true if the file was deleted, false if it didn't exist
+ */
+export function deleteFileFromState(state: AgentState, path: string): boolean {
+  const files = { ...(state.files || {}) };
+  if (!files[path]) {
+    return false;
+  }
+  
+  delete files[path];
+  state.files = files;
+  return true;
+}
 
 /**
  * Tool to get the file system
@@ -53,8 +103,8 @@ export const setFiles = tool({
     try {
       const agent = agentContext.getStore();
       if (!agent) throw new Error("Agent context not found");
-      const fs = new FilesystemModule(agent.state);
-      fs.setFiles(files);
+      
+      // Update agent state directly
       await agent.setState({
         ...agent.state,
         files,
@@ -83,12 +133,16 @@ export const createOrUpdateFile = tool({
     try {
       const agent = agentContext.getStore();
       if (!agent) throw new Error("Agent context not found");
-      const fs = new FilesystemModule(agent.state);
-      const op = fs.createOrUpdateFile(path, content);
+      
+      // Create or update the file and get the operation result
+      const op = createOrUpdateFileInState(agent.state, path, content);
+      
+      // Update the agent state with the modified files
       await agent.setState({
         ...agent.state,
-        files: fs.getFileSystem(),
+        files: agent.state.files,
       });
+      
       return `File '${path}' has been ${op} successfully.`;
     } catch (error) {
       console.error(`Error creating/updating file '${path}':`, error);
@@ -109,16 +163,20 @@ export const deleteFile = tool({
     try {
       const agent = agentContext.getStore();
       if (!agent) throw new Error("Agent context not found");
-      const fs = new FilesystemModule(agent.state);
-      const deleted = fs.deleteFile(path);
+      
+      // Delete the file and get the result
+      const deleted = deleteFileFromState(agent.state, path);
+      
+      // Update the agent state with the modified files
       await agent.setState({
         ...agent.state,
-        files: fs.getFileSystem(),
+        files: agent.state.files,
       });
-      if (!deleted) {
-        return `File '${path}' does not exist.`;
-      }
-      return `File '${path}' has been deleted successfully.`;
+      
+      // Return appropriate message based on the result
+      return deleted
+        ? `File '${path}' has been deleted successfully.`
+        : `File '${path}' does not exist.`;
     } catch (error) {
       console.error(`Error deleting file '${path}':`, error);
       return `Error deleting file: ${error}`;

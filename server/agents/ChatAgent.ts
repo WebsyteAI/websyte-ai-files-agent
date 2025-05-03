@@ -15,10 +15,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { generateSystemPrompt } from "../constants/system-prompt";
 import type { AgentState, Env } from "../types";
 
-// Import domain modules (to be implemented)
-import { FilesystemModule } from "./FilesystemModule";
-import { SchedulerModule } from "./SchedulerModule";
-
 const model = openai("gpt-4.1");
 
 // we use ALS to expose the agent context to the tools
@@ -45,15 +41,8 @@ export class ChatAgent extends AIChatAgent<Env, AgentState> {
     dispatchNamespaceAccountId: process.env.DISPATCH_NAMESPACE_ACCOUNT_ID || "",
   };
 
-  // Domain modules (all share the same state)
-  filesystem: FilesystemModule;
-  scheduler: SchedulerModule;
-
   constructor(ctx: any, env: Env) {
     super(ctx, env);
-    // Pass the shared state to each module
-    this.filesystem = new FilesystemModule(this.state);
-    this.scheduler = new SchedulerModule(this.state);
   }
 
   async onRequest(request: Request): Promise<Response> {
