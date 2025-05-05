@@ -38,6 +38,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.36.5
         version: 6.36.5
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.11.0
+        version: 1.11.0
       '@phosphor-icons/react':
         specifier: ^2.1.7
         version: 2.1.7(react-dom@19.1.0(react@19.1.0))(react@19.1.0)

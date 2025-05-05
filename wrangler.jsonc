@@ -14,6 +14,10 @@
       {
         "name": "Chat",
         "class_name": "Chat"
+      },
+      {
+        "name": "TestMcpAgent",
+        "class_name": "TestMcpAgent"
       }
     ]
   },
@@ -21,15 +25,9 @@
     {
       "tag": "v1",
       "new_sqlite_classes": [
-        "Chat"
+        "Chat",
+        "TestMcpAgent"
       ]
-    }
-  ],
-  "workflows": [
-    {
-      "name": "workflow-agent-demo",
-      "binding": "EXAMPLE_WORKFLOW",
-      "class_name": "ExampleWorkflow"
     }
   ],
   "vars": {

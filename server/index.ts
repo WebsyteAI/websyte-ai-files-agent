@@ -1,12 +1,12 @@
 import { routeAgentRequest } from "agents";
 import type { ExecutionContext } from "@cloudflare/workers-types";
-// Import the agent class and context from the new file
-import { Chat, agentContext } from "./agent";
+// Import the agent classes and contexts from the agent file
+import { Chat, agentContext, TestMcpAgent } from "./agent";
 // Import the router
 import { router } from './router';
 
-// Note: The Chat class and agentContext are now defined in agent.ts
-export {Chat, agentContext};
+// Note: The agent classes and contexts are now defined in agent.ts
+export { Chat, agentContext, TestMcpAgent };
 
 /**
  * Worker entry point that routes incoming requests to the appropriate handler
@@ -29,8 +29,9 @@ export default {
       return router.fetch(request as any, env, ctx);
     }
     
-    // Otherwise, try to route to an agent
-    const agentResponse = await routeAgentRequest(request as any, env);
+    // Route to an agent using the standard Agents routing mechanism
+    // This will automatically handle routes like /agents/test-mcp-agent/:name
+    const agentResponse = await routeAgentRequest(request as any, env, { cors: true });
     if (agentResponse) {
       return agentResponse;
     }
